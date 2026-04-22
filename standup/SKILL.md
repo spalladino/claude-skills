@@ -12,10 +12,7 @@ Generate a concise standup update for the user based on their recent activity ac
 
 ## Parameters
 
-- **GitHub username**: `spalladino`
-- **GitHub repo**: `aztecprotocol/aztec-packages`
-- **Linear team**: Alpha (ID: `44f4d483-9701-4047-81c7-d844f443fb2e`)
-- **Linear user**: santiago@aztec-labs.com (ID: `29bab972-86f8-4d19-a51c-de100a8d873d`, assignee name: `palla`)
+Read GitHub username, GitHub repo, Linear team, and Linear user (email, ID, and assignee name) from `standup/config.local.md` in this skill's directory. That file is gitignored — create it from the example if it doesn't exist.
 
 ## Time range
 
@@ -23,9 +20,9 @@ The user will specify a "since" reference (e.g. "friday", "yesterday", "2026-03-
 
 ## Steps
 
-1. **GitHub PRs**: Use `gh pr list` to fetch recent PRs (all states) authored by `spalladino` in `aztecprotocol/aztec-packages`, filtered to the relevant time range using `--search "updated:>=<date>"`.
+1. **GitHub PRs**: Use `gh pr list` to fetch recent PRs (all states) authored by the configured GitHub username in the configured repo, filtered to the relevant time range using `--search "updated:>=<date>"`.
 
-2. **Linear issues**: Use the `mcp__linear-server__list_issues` tool to fetch issues assigned to `palla` in team `Alpha`, updated since the relevant date.
+2. **Linear issues**: Use the `mcp__linear-server__list_issues` tool to fetch issues assigned to the configured Linear user in the configured team, updated since the relevant date.
 
 3. **Compose the update** with these sections:
    - **Done**: Completed/merged items (link Linear issues to their corresponding PRs where possible)

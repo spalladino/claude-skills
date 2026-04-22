@@ -1,0 +1,8 @@
+## Standup config
+
+Copy this file to `config.local.md` (gitignored) and fill in your own values.
+
+- **GitHub username**: `your-github-handle`
+- **GitHub repo**: `org/repo`
+- **Linear team**: Team Name (ID: `<team-uuid>`)
+- **Linear user**: you@example.com (ID: `<user-uuid>`, assignee name: `your-linear-handle`)
