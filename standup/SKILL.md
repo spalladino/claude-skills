@@ -1,0 +1,36 @@
+---
+name: standup
+description: Generate a standup update by reviewing recent GitHub PRs and Linear issues
+argument-hint: "[since-date-or-day, e.g. 'friday' or '2026-03-13']"
+disable-model-invocation: true
+allowed-tools: Bash(gh pr list *), mcp__linear-server__list_issues
+---
+
+# Standup Update
+
+Generate a concise standup update for the user based on their recent activity across GitHub and Linear.
+
+## Parameters
+
+- **GitHub username**: `spalladino`
+- **GitHub repo**: `aztecprotocol/aztec-packages`
+- **Linear team**: Alpha (ID: `44f4d483-9701-4047-81c7-d844f443fb2e`)
+- **Linear user**: santiago@aztec-labs.com (ID: `29bab972-86f8-4d19-a51c-de100a8d873d`, assignee name: `palla`)
+
+## Time range
+
+The user will specify a "since" reference (e.g. "friday", "yesterday", "2026-03-13"). Convert relative references to absolute dates. If no argument is given, default to the last working day at 14:30 UTC. The argument is: $ARGUMENTS
+
+## Steps
+
+1. **GitHub PRs**: Use `gh pr list` to fetch recent PRs (all states) authored by `spalladino` in `aztecprotocol/aztec-packages`, filtered to the relevant time range using `--search "updated:>=<date>"`.
+
+2. **Linear issues**: Use the `mcp__linear-server__list_issues` tool to fetch issues assigned to `palla` in team `Alpha`, updated since the relevant date.
+
+3. **Compose the update** with these sections:
+   - **Done**: Completed/merged items (link Linear issues to their corresponding PRs where possible)
+   - **In Review**: Open PRs and issues in review
+   - **Todo/Backlog**: Upcoming items from Linear
+   - **TL;DR for standup**: A 2-3 sentence summary suitable for a synchronous standup
+
+Keep it concise and group related PRs and Linear issues together. Lead with the Linear issue ID when available.
