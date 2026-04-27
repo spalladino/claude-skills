@@ -48,15 +48,21 @@ For each phase, in order. **Never run two phases in parallel.**
    - The **specific phase** to implement, quoted.
    - The **strictness gate** so the agent runs the right local checks before reporting back.
    - Instruction to **report back** with: files changed, summary of what was done, any deviations from the plan and why, and any followups it noticed but didn't do.
+   - The **BLOCKED protocol** (see below): if stuck or unsure, don't guess and don't make destructive changes — return a message starting with `BLOCKED:` followed by specific questions, and stop. The parent will answer and resume the same agent via `SendMessage`, so context is preserved.
 2. **Wait** for the agent to finish before doing anything else. Do not start the next phase early.
-3. **Run the gate** yourself to verify (don't trust the agent's self-report alone):
+3. **Handle BLOCKED returns**: if the agent's return message starts with `BLOCKED:`, treat it as a clarification request rather than a completion.
+   - Try to answer from the plan and conversation context first.
+   - If the answer requires a user decision, ask via `AskUserQuestion`.
+   - **Resume the same agent** via `SendMessage` (use the agent's ID or name as the `to` field) with the answers — do **not** spawn a new agent, since that throws away its context.
+   - Loop until the agent returns a real completion (no `BLOCKED:` prefix).
+4. **Run the gate** yourself to verify (don't trust the agent's self-report alone):
    - strict → `yarn build && yarn lint`, plus the test files for any modified test sources (`git diff --name-only $START_REF -- '*.test.*' '*.spec.*'`)
    - build-only → `yarn build && yarn lint`
    - loose → no check
-4. If the gate fails, **stop and ask the user** how to proceed (retry the phase, hand-edit, abort). Do not silently retry.
-5. **Update the plan file**: append an `### Implementation log` block under that phase containing the agent's summary, list of changed files, and any deviations. Save so progress is durable.
-6. If commit-per-phase is selected, commit now with a message naming the phase.
-7. Move on to the next phase.
+5. If the gate fails, **stop and ask the user** how to proceed (retry the phase, hand-edit, abort). Do not silently retry.
+6. **Update the plan file**: append an `### Implementation log` block under that phase containing the agent's summary, list of changed files, and any deviations. Save so progress is durable.
+7. If commit-per-phase is selected, commit now with a message naming the phase.
+8. Move on to the next phase.
 
 ## Step 4: Final verification
 
