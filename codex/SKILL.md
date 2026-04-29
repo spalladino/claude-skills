@@ -31,6 +31,8 @@ Use the non-interactive `codex exec` subcommand. Write the prompt to a file with
 
 ```bash
 codex exec \
+  -m gpt-5.5 \
+  -c model_reasoning_effort=high \
   --sandbox read-only \
   --skip-git-repo-check \
   -C "$(pwd)" \
@@ -41,6 +43,8 @@ codex exec \
 
 Flags:
 
+- `-m gpt-5.5` — always use this model. Don't fall back to the default.
+- `-c model_reasoning_effort=high` — default reasoning effort. For **very contentious** questions (e.g. the user is pushing back hard on codex, repeated disagreements, or a high-stakes architectural call where you need codex to genuinely stress-test the position), bump to `xhigh` instead. Don't escalate by default — high is the baseline.
 - `--sandbox read-only` — governs *shell commands codex may execute*, not file reads; codex can still read files under `-C`. Use `workspace-write` only if the user explicitly wants codex to make changes.
 - `--skip-git-repo-check` — avoids failures when cwd isn't a git root.
 - `-C <dir>` — working directory codex sees. Point at the repo/package relevant to the question. For this monorepo usually `yarn-project` or the git root.
@@ -74,12 +78,14 @@ If codex's response is unclear, seems wrong, or you want to push back, **resume 
 # (use the Write tool to create $CODEX_DIR/followup-N.md)
 
 codex exec resume "$(cat "$CODEX_DIR/session_id")" \
+  -m gpt-5.5 \
+  -c model_reasoning_effort=high \
   -o "$CODEX_DIR/response-N.md" \
   - < "$CODEX_DIR/followup-N.md" \
   >> "$CODEX_DIR/log.txt" 2>&1
 ```
 
-`codex exec resume` does **not** accept `--sandbox`, `-C`, or `--skip-git-repo-check` — only `--last`, `-o`, `-m`, `-i`, `--ephemeral`, and a few others. If cwd matters for the follow-up, `cd` into the right directory before calling resume.
+`codex exec resume` does **not** accept `--sandbox`, `-C`, or `--skip-git-repo-check` — only `--last`, `-o`, `-m`, `-i`, `--ephemeral`, and a few others. If cwd matters for the follow-up, `cd` into the right directory before calling resume. Keep `-m gpt-5.5` and `-c model_reasoning_effort=high` (or `xhigh` if the disagreement that prompted the resume is contentious enough to warrant it).
 
 Use numbered filenames (`response-2.md`, `followup-2.md`, …) so earlier turns aren't overwritten. Resume whenever you disagree with codex, need clarification, want to point out an error in its response, or want to test whether it holds its position under pushback. Starting a new session throws away its context and often wastes a round-trip re-establishing the setup.
 
