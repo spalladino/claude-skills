@@ -1,6 +1,12 @@
 ---
 name: codex
 description: Invoke the Codex CLI to get a second opinion on a plan, design, analysis, or piece of code. Use ONLY when the user explicitly asks to involve codex (e.g. "ask codex", "have codex review", "get codex's take", "check with codex"). Do not invoke proactively.
+allowed-tools:
+  - Bash(codex exec -m gpt-5.5 -c model_reasoning_effort=high --sandbox read-only --skip-git-repo-check -C *)
+  - Bash(codex exec -m gpt-5.5 -c model_reasoning_effort=xhigh --sandbox read-only --skip-git-repo-check -C *)
+  - Bash(codex exec resume *)
+  - Bash(grep -oE 'session id: [0-9a-f-]{36}' *)
+  - Bash(mktemp -d -t codex-*)
 ---
 
 # Ask Codex for Review
