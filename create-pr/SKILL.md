@@ -34,13 +34,15 @@ Analyze ALL commits on the branch (not just the latest) and write the descriptio
 ```
 ## Motivation
 
-Explain *why* this change exists. What problem does it solve? If it fixes a bug, describe the bug.
-Keep it succinct: 2-4 sentences.
+Explain *why* this change exists. What problem does it solve? If it fixes a bug, describe the bug. Pay special attention at the first messages of the conversation or the beginning of the plan (if any) for motivation clues.
+
+Keep it succinct. No need to expand longer than needed. No more than 4 sentences.
 
 ## Approach
 
 Explain *how* it was done at a high level. Focus on concepts and subsystems, not individual files.
-Keep it succinct: 2-4 sentences.
+
+Keep it succinct. No need to expand longer than needed. No more than 4 sentences.
 
 ## Changes
 
