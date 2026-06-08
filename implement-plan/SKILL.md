@@ -2,7 +2,7 @@
 name: implement-plan
 description: Implement a written plan phase-by-phase using sequential subagents, logging each phase's outcome back into the plan, then verifying and running a final code review.
 argument-hint: "[model: opus|sonnet|haiku]"
-disable-model-invocation: true
+disable-model-invocation: false 
 ---
 
 # Implement Plan
