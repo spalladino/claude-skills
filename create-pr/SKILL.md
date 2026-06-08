@@ -10,18 +10,18 @@ Create a PR for the current branch following this workflow.
 
 ## Step 1: Gather context
 
-Run these in parallel:
+Skip this step if you already have the context of what was done in this changeset from the conversation or a plan. Otherwise, gather the following information, by running these in parallel:
 
 - `git status` (never use `-uall`)
 - `git diff` to see unstaged changes
 - `git diff --cached` to see staged changes
-- `git log origin/<base>..HEAD` and `git diff origin/<base>...HEAD` to understand all commits in this branch (ask the user for base branch if unsure)
+- `git log origin/<base>..HEAD` and `git diff origin/<base>...HEAD` to understand all commits in this branch (ask the user for base branch if unsure) (analyze ALL commits on the branch and not just the latest)
 
 ## Step 2: Draft the PR description
 
 Use the conversation context, or a plan if there is any, to understand the motivation.
 
-Analyze ALL commits on the branch (not just the latest) and write the description using this structure:
+Write the description using this structure:
 
 ### Title
 
@@ -36,13 +36,19 @@ Analyze ALL commits on the branch (not just the latest) and write the descriptio
 
 Explain *why* this change exists. What problem does it solve? If it fixes a bug, describe the bug. Pay special attention at the first messages of the conversation or the beginning of the plan (if any) for motivation clues.
 
-Keep it succinct. No need to expand longer than needed. No more than 4 sentences.
+Keep it succinct. No need to expand longer than needed.
 
 ## Approach
 
 Explain *how* it was done at a high level. Focus on concepts and subsystems, not individual files.
 
-Keep it succinct. No need to expand longer than needed. No more than 4 sentences.
+Keep it succinct. No need to expand longer than needed.
+
+Consider using bullet points or subsections if there are multiple key aspects to the approach.
+
+## API changes
+
+If there are any **public** API changes, describe them here. If not, omit this section.
 
 ## Changes
 
