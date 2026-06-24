@@ -21,41 +21,45 @@ Skip this step if you already have the context of what was done in this changese
 
 Use the conversation context, or a plan if there is any, to understand the motivation.
 
-Write the description using this structure:
-
 ### Title
 
 - Short, under 70 characters
 - Use conventional commit style: `fix(scope):`, `feat(scope):`, `chore(scope):`, etc.
 - If `$ARGUMENTS` is provided, use it as the title
 
-### Body
+### Body — scale it to the size of the change
+
+Match the description to how much the reviewer actually needs. Do not pad a small change into the full template.
+
+**Trivial change** (typo, one-liner, config bump, comment, dependency bump): a single sentence. No headers.
 
 ```
-## Motivation
+Bump `viem` to 2.21.0 to pick up the EIP-7702 fix.
+```
 
-Explain *why* this change exists. What problem does it solve? If it fixes a bug, describe the bug. Pay special attention at the first messages of the conversation or the beginning of the plan (if any) for motivation clues.
+**Small, focused change** (one concern, one subsystem): one or two sentences of context, then what you did. Headers optional — a short paragraph is fine.
 
-Keep it succinct. No need to expand longer than needed.
+```
+Session tokens never expired, so revoked sessions stayed valid. Add a TTL check in the session middleware.
+```
+
+**Substantial change** (new feature, refactor, multiple subsystems): use the sections below. Open with a one-sentence summary, then:
+
+```
+## Context
+
+Explain *why* this change exists — the problem it solves, or the bug it fixes. Look at the first messages of the conversation or the start of the plan for clues. 1-3 sentences.
 
 ## Approach
 
-Explain *how* it was done at a high level. Focus on concepts and subsystems, not individual files.
-
-Keep it succinct. No need to expand longer than needed.
-
-Consider using bullet points or subsections if there are multiple key aspects to the approach.
+Explain *how* it was done at a high level — concepts and subsystems, not individual files. A few sentences, or up to ~5 bullets if there are distinct aspects.
 
 ## API changes
 
-If there are any **public** API changes, describe them here. If not, omit this section.
-
-## Changes
-
-Outline the main packages or areas changed as a bulleted list:
-- **package-name**: Brief description of what changed and why
-- **package-name (tests)**: Brief description of test changes
+Only if there are **public** API changes. Describe what changed for callers. Omit this section entirely otherwise.
 ```
+
+Do not add a "Changes" / per-package breakdown — the diff already lists the files. Only call out specific packages inside Approach when the *where* is itself non-obvious or important.
 
 ### Issue linking
 
@@ -68,11 +72,12 @@ If multiple issues are relevant, add one `Fixes` line per issue.
 
 ### Style rules
 
+- Default to fewer words. When in doubt, cut a sentence rather than add one.
 - Do NOT use checklists (`- [ ]`) unless explicitly requested
-- Do NOT add a "Test plan" section
+- Do NOT add a "Test plan" or "Changes" section
 - Do NOT add a "Generated with Claude Code" footer
-- Write in plain, direct language. No filler.
-- Focus on _why_ over _what_ in the motivation. Focus on concepts over files in the approach.
+- Write in plain, direct language. No filler, no restating the title.
+- Focus on _why_ over _what_ in the context. Focus on concepts over files in the approach.
 
 ## Step 3: Create the PR
 
@@ -85,13 +90,10 @@ Use a HEREDOC for the body:
 
 ```bash
 gh pr create --title "the pr title" --body "$(cat <<'EOF'
-## Motivation
+## Context
 ...
 
 ## Approach
-...
-
-## Changes
 ...
 EOF
 )"
