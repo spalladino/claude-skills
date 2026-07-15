@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<!--
+  ╔══════════════════════════════════════════════════════════════════════╗
+  ║  HTML EXPLAINER TEMPLATE                                                ║
+  ║                                                                        ║
+  ║  This is a SELF-CONTAINED starting point for an explainer page.        ║
+  ║  All styling lives in the <style> block below — there are NO external  ║
+  ║  fonts, scripts, or stylesheets, so the finished file works anywhere   ║
+  ║  it is opened or shared.                                               ║
+  ║                                                                        ║
+  ║  HOW TO USE (for the rendering agent):                                 ║
+  ║   1. Keep the <head> and the entire <style> block as-is.               ║
+  ║   2. Replace the demo content inside <body> with the real content      ║
+  ║      from the brief, VERBATIM. Do not reword, summarize, or invent.    ║
+  ║   3. Use the component patterns shown below — they are pre-styled.     ║
+  ║   4. Delete any demo components you do not need.                        ║
+  ║   5. Set the <title> and the <h1> to the explainer's title.            ║
+  ╚══════════════════════════════════════════════════════════════════════╝
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>REPLACE WITH THE EXPLAINER TITLE</title>
+  <style>
+    /* ─── Design tokens ─────────────────────────────────────────────── */
+    :root {
+      --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      --font-mono: "SF Mono", "JetBrains Mono", "Fira Code", Menlo, Consolas, monospace;
+
+      --bg: #f7f7f6;
+      --surface: #ffffff;
+      --text: #1f2328;
+      --text-soft: #57606a;
+      --border: #e3e3e0;
+      --accent: #2f6feb;
+      --accent-soft: #eaf1fe;
+
+      --note: #2f6feb;     --note-bg: #eaf1fe;
+      --tip: #1a7f55;      --tip-bg: #e7f6ee;
+      --warn: #b35309;     --warn-bg: #fdf2e3;
+      --key: #6b40c9;      --key-bg: #f1ecfb;
+
+      --radius: 10px;
+      --measure: 720px;
+      --space: 1.5rem;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0f1115;
+        --surface: #181b21;
+        --text: #e7e9ec;
+        --text-soft: #9aa4b2;
+        --border: #2a2f3a;
+        --accent: #6f9bff;
+        --accent-soft: #1b2233;
+        --note-bg: #16202e;
+        --tip-bg: #102018;
+        --warn-bg: #241a0e;
+        --key-bg: #1c1730;
+      }
+    }
+
+    /* ─── Base ──────────────────────────────────────────────────────── */
+    * { box-sizing: border-box; }
+    html { -webkit-text-size-adjust: 100%; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-body);
+      font-size: 18px;
+      line-height: 1.65;
+      -webkit-font-smoothing: antialiased;
+    }
+    .page {
+      max-width: var(--measure);
+      margin: 0 auto;
+      padding: clamp(1.25rem, 4vw, 3.5rem) clamp(1.1rem, 4vw, 2rem) 5rem;
+    }
+
+    /* ─── Header ────────────────────────────────────────────────────── */
+    .explainer-header { margin-bottom: 2.5rem; }
+    h1 {
+      font-size: clamp(1.9rem, 5vw, 2.7rem);
+      line-height: 1.15;
+      letter-spacing: -0.02em;
+      margin: 0 0 0.6rem;
+    }
+    .subtitle {
+      font-size: 1.2rem;
+      color: var(--text-soft);
+      margin: 0;
+    }
+    .meta {
+      margin-top: 1rem;
+      font-size: 0.85rem;
+      color: var(--text-soft);
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+    }
+
+    /* ─── Typography ────────────────────────────────────────────────── */
+    h2 {
+      font-size: 1.55rem;
+      letter-spacing: -0.01em;
+      margin: 3rem 0 1rem;
+      padding-bottom: 0.4rem;
+      border-bottom: 2px solid var(--border);
+    }
+    h3 { font-size: 1.2rem; margin: 2rem 0 0.6rem; }
+    p { margin: 0 0 1.1rem; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    strong { font-weight: 650; }
+    hr { border: none; border-top: 1px solid var(--border); margin: 2.5rem 0; }
+    ul, ol { padding-left: 1.4rem; margin: 0 0 1.1rem; }
+    li { margin: 0.35rem 0; }
+    small { color: var(--text-soft); }
+
+    /* ─── Table of contents ─────────────────────────────────────────── */
+    .toc {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.1rem 1.4rem;
+      margin-bottom: 2.5rem;
+    }
+    .toc-title {
+      font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.06em;
+      color: var(--text-soft); margin: 0 0 0.6rem; font-weight: 650;
+    }
+    .toc ol { margin: 0; }
+
+    /* ─── Callouts ──────────────────────────────────────────────────── */
+    .callout {
+      display: flex; gap: 0.75rem;
+      border: 1px solid var(--border);
+      border-left-width: 4px;
+      border-radius: var(--radius);
+      padding: 1rem 1.2rem;
+      margin: 1.5rem 0;
+      background: var(--surface);
+    }
+    .callout-icon { flex: none; font-size: 1.15rem; line-height: 1.5; }
+    .callout-body { flex: 1; }
+    .callout-body > :first-child { margin-top: 0; }
+    .callout-body > :last-child { margin-bottom: 0; }
+    .callout-label {
+      font-weight: 650; font-size: 0.78rem; text-transform: uppercase;
+      letter-spacing: 0.05em; display: block; margin-bottom: 0.3rem;
+    }
+    .callout--note    { border-left-color: var(--note); background: var(--note-bg); }
+    .callout--note .callout-label { color: var(--note); }
+    .callout--tip     { border-left-color: var(--tip); background: var(--tip-bg); }
+    .callout--tip .callout-label { color: var(--tip); }
+    .callout--warning { border-left-color: var(--warn); background: var(--warn-bg); }
+    .callout--warning .callout-label { color: var(--warn); }
+    .callout--key     { border-left-color: var(--key); background: var(--key-bg); }
+    .callout--key .callout-label { color: var(--key); }
+
+    /* ─── Code ──────────────────────────────────────────────────────── */
+    code {
+      font-family: var(--font-mono);
+      font-size: 0.88em;
+      background: var(--accent-soft);
+      padding: 0.12em 0.4em;
+      border-radius: 5px;
+    }
+    pre {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.1rem 1.3rem;
+      overflow-x: auto;
+      margin: 1.5rem 0;
+      line-height: 1.5;
+    }
+    pre code { background: none; padding: 0; font-size: 0.85rem; }
+
+    /* ─── Steps (numbered flow) ─────────────────────────────────────── */
+    .steps { list-style: none; counter-reset: step; padding: 0; margin: 1.5rem 0; }
+    .steps > li {
+      position: relative;
+      padding-left: 3rem;
+      margin: 0 0 1.3rem;
+      min-height: 2rem;
+    }
+    .steps > li::before {
+      counter-increment: step;
+      content: counter(step);
+      position: absolute; left: 0; top: -0.1rem;
+      width: 2rem; height: 2rem;
+      background: var(--accent); color: #fff;
+      border-radius: 50%;
+      display: grid; place-items: center;
+      font-weight: 650; font-size: 0.95rem;
+    }
+    .steps > li strong { display: block; }
+
+    /* ─── Tables ────────────────────────────────────────────────────── */
+    .table-wrap { overflow-x: auto; margin: 1.5rem 0; }
+    table { border-collapse: collapse; width: 100%; font-size: 0.95rem; }
+    th, td { text-align: left; padding: 0.6rem 0.9rem; border-bottom: 1px solid var(--border); }
+    th { font-weight: 650; border-bottom: 2px solid var(--border); }
+    tbody tr:last-child td { border-bottom: none; }
+
+    /* ─── Blockquote ────────────────────────────────────────────────── */
+    blockquote {
+      margin: 1.5rem 0; padding: 0.2rem 0 0.2rem 1.2rem;
+      border-left: 3px solid var(--border);
+      color: var(--text-soft); font-style: italic;
+    }
+
+    /* ─── Figures & diagrams ────────────────────────────────────────── */
+    figure {
+      margin: 2rem 0;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.5rem;
+      text-align: center;
+    }
+    figure svg, figure img { max-width: 100%; height: auto; }
+    figcaption {
+      margin-top: 1rem; font-size: 0.85rem; color: var(--text-soft);
+    }
+    /* Helpers for SVG diagrams so colors track the theme */
+    .dg-node { fill: var(--surface); stroke: var(--accent); stroke-width: 2; }
+    .dg-node-text { fill: var(--text); font-family: var(--font-body); font-size: 14px; }
+    .dg-edge { stroke: var(--text-soft); stroke-width: 2; fill: none; }
+    .dg-edge-text { fill: var(--text-soft); font-family: var(--font-body); font-size: 12px; }
+
+    /* ─── Definition / key-value list ───────────────────────────────── */
+    .keyvalue { display: grid; grid-template-columns: max-content 1fr; gap: 0.5rem 1.2rem; margin: 1.5rem 0; }
+    .keyvalue dt { font-weight: 650; }
+    .keyvalue dd { margin: 0; color: var(--text-soft); }
+
+    /* ─── Footer ────────────────────────────────────────────────────── */
+    .explainer-footer {
+      margin-top: 4rem; padding-top: 1.5rem;
+      border-top: 1px solid var(--border);
+      font-size: 0.85rem; color: var(--text-soft);
+    }
+
+    /* ─── Print ─────────────────────────────────────────────────────── */
+    @media print {
+      :root { --bg: #fff; --surface: #fff; }
+      body { font-size: 12pt; }
+      .page { max-width: none; padding: 0; }
+      .callout, figure, pre { break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <article class="page">
+
+    <!-- ════════ HEADER ════════ -->
+    <header class="explainer-header">
+      <h1>Explainer Title Goes Here</h1>
+      <p class="subtitle">One-line framing of what this page explains.</p>
+      <p class="meta">Optional meta line · e.g. context or date</p>
+    </header>
+
+    <!-- ════════ TABLE OF CONTENTS (optional — delete if not needed) ════════ -->
+    <nav class="toc">
+      <p class="toc-title">Contents</p>
+      <ol>
+        <li><a href="#section-1">First section</a></li>
+        <li><a href="#section-2">Second section</a></li>
+      </ol>
+    </nav>
+
+    <!-- ════════ A SECTION ════════ -->
+    <section id="section-1">
+      <h2>A section heading</h2>
+      <p>Regular paragraph text. Use <code>inline code</code> for identifiers,
+        <strong>strong</strong> for emphasis, and <a href="#">links</a> where useful.</p>
+
+      <h3>A subheading</h3>
+      <p>More body text under a subheading.</p>
+    </section>
+
+    <!-- ════════ CALLOUTS ════════ -->
+    <section id="section-2">
+      <h2>Callout variants</h2>
+
+      <div class="callout callout--note">
+        <span class="callout-icon">📌</span>
+        <div class="callout-body">
+          <span class="callout-label">Note</span>
+          <p>Neutral aside or clarification.</p>
+        </div>
+      </div>
+
+      <div class="callout callout--tip">
+        <span class="callout-icon">💡</span>
+        <div class="callout-body">
+          <span class="callout-label">Tip</span>
+          <p>Helpful pointer.</p>
+        </div>
+      </div>
+
+      <div class="callout callout--warning">
+        <span class="callout-icon">⚠️</span>
+        <div class="callout-body">
+          <span class="callout-label">Warning</span>
+          <p>Something to be careful about.</p>
+        </div>
+      </div>
+
+      <div class="callout callout--key">
+        <span class="callout-icon">🔑</span>
+        <div class="callout-body">
+          <span class="callout-label">Key idea</span>
+          <p>The single most important takeaway.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ════════ NUMBERED STEPS ════════ -->
+    <section>
+      <h2>A step-by-step flow</h2>
+      <ol class="steps">
+        <li><strong>First step.</strong> Description of what happens.</li>
+        <li><strong>Second step.</strong> Description of what happens.</li>
+        <li><strong>Third step.</strong> Description of what happens.</li>
+      </ol>
+    </section>
+
+    <!-- ════════ CODE BLOCK ════════ -->
+    <section>
+      <h2>A code block</h2>
+      <pre><code>function example() {
+  return "verbatim — do not edit code from the brief";
+}</code></pre>
+    </section>
+
+    <!-- ════════ TABLE ════════ -->
+    <section>
+      <h2>A table</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Column A</th><th>Column B</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Cell</td><td>Cell</td></tr>
+            <tr><td>Cell</td><td>Cell</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ════════ KEY-VALUE LIST ════════ -->
+    <section>
+      <h2>A key-value list</h2>
+      <dl class="keyvalue">
+        <dt>Term</dt><dd>Definition.</dd>
+        <dt>Term</dt><dd>Definition.</dd>
+      </dl>
+    </section>
+
+    <!-- ════════ DIAGRAM (inline SVG) ════════
+         Draw diagrams ONLY from an explicit spec in the brief.
+         Use the .dg-* helper classes so colors follow the theme.
+         Include exactly the nodes, edges, and labels specified —
+         no more, no fewer. -->
+    <section>
+      <h2>A diagram</h2>
+      <figure>
+        <svg viewBox="0 0 360 120" width="360" role="img" aria-label="Describe the diagram for screen readers">
+          <rect class="dg-node" x="20"  y="40" width="120" height="44" rx="8"/>
+          <text class="dg-node-text" x="80"  y="67" text-anchor="middle">Box A</text>
+          <line class="dg-edge" x1="140" y1="62" x2="220" y2="62" marker-end="url(#arrow)"/>
+          <rect class="dg-node" x="220" y="40" width="120" height="44" rx="8"/>
+          <text class="dg-node-text" x="280" y="67" text-anchor="middle">Box B</text>
+          <defs>
+            <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 z" fill="var(--text-soft)"/>
+            </marker>
+          </defs>
+        </svg>
+        <figcaption>Caption describing the diagram.</figcaption>
+      </figure>
+    </section>
+
+    <!-- ════════ FOOTER (optional) ════════ -->
+    <footer class="explainer-footer">
+      <p>Optional footer note.</p>
+    </footer>
+
+  </article>
+</body>
+</html>
