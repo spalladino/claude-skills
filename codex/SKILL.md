@@ -2,11 +2,12 @@
 name: codex
 description: Invoke the Codex CLI to get a second opinion on a plan, design, analysis, or piece of code. Use ONLY when the user explicitly asks to involve codex (e.g. "ask codex", "have codex review", "get codex's take", "check with codex"). Do not invoke proactively.
 allowed-tools:
-  - Bash(codex exec -m gpt-5.5 -c model_reasoning_effort=high --sandbox read-only --skip-git-repo-check -C *)
-  - Bash(codex exec -m gpt-5.5 -c model_reasoning_effort=xhigh --sandbox read-only --skip-git-repo-check -C *)
-  - Bash(codex exec resume *)
-  - Bash(grep -oE 'session id: [0-9a-f-]{36}' *)
-  - Bash(mktemp -d -t codex-*)
+  - "Bash(codex exec -m gpt-5.6-terra -c model_reasoning_effort=medium --sandbox read-only --skip-git-repo-check -C *)"
+  - "Bash(codex exec -m gpt-5.6-sol -c model_reasoning_effort=high --sandbox read-only --skip-git-repo-check -C *)"
+  - "Bash(codex exec -m gpt-5.6-sol -c model_reasoning_effort=xhigh --sandbox read-only --skip-git-repo-check -C *)"
+  - "Bash(codex exec resume *)"
+  - "Bash(grep -m 1 -oE 'session id: [0-9a-f-]{36}' *)"
+  - "Bash(mktemp -d -t codex-*)"
 ---
 
 # Ask Codex for Review
@@ -19,17 +20,25 @@ Use the `codex` CLI to get a second opinion from a different model family. Codex
 
 ## Unique temp paths per invocation
 
-Multiple Claude instances may run codex concurrently, and you may call codex more than once in a single session. Always allocate a fresh directory with `mktemp -d` at the start of each invocation — never hardcode paths like `/tmp/codex-prompt.md`:
+Multiple Claude instances may run codex concurrently, and you may call codex more than once in a single session. Always allocate a fresh directory at the start of each invocation — never hardcode paths like `/tmp/codex-prompt.md`:
 
 ```bash
-CODEX_DIR=$(mktemp -d -t codex-XXXXXXXX)
-# Use:
-#   $CODEX_DIR/prompt.md    — prompt you pipe in
-#   $CODEX_DIR/response.md  — codex's final message (-o target)
-#   $CODEX_DIR/log.txt      — full stdout+stderr (for extracting session id)
+mktemp -d -t codex-XXXXXXXX
 ```
 
-Keep `$CODEX_DIR` in scope for the whole invocation so follow-ups reuse the same paths. If you need the value across separate Bash calls, echo it back once and remember it, or export it to an env var that persists for the session.
+Remember the returned path and use it literally in later tool calls for `prompt.md`, `response.md`, and `log.txt`. Separate Bash tool calls do not share shell variables, so do not rely on exporting `CODEX_DIR` in one call and using it in another. Reuse the same directory for follow-ups to that Codex session.
+
+## Choose the model and reasoning effort
+
+Scale both the model and reasoning effort to the review's difficulty:
+
+| Review | Model | Reasoning effort | Use when |
+| --- | --- | --- | --- |
+| Routine | `gpt-5.6-terra` | `medium` | The scope and success criteria are clear, the relevant code is localized, and the review mainly needs a solid independent pass. |
+| Substantive (default) | `gpt-5.6-sol` | `high` | The review involves ambiguity, cross-cutting behavior, architecture, non-obvious failure modes, or meaningful risk. Use this when unsure. |
+| Exceptional | `gpt-5.6-sol` | `xhigh` | The question is unusually difficult, contentious, high-stakes, or has already survived serious pushback and needs the deepest single-agent analysis. |
+
+Do not use `gpt-5.6-luna` for this skill. Luna is optimized for clear, repeatable, high-volume work; a critical second opinion needs more judgment. Likewise, do not use `none`, `minimal`, or `low` reasoning effort. Do not reach for `xhigh` by default: it costs more time and usage, and `high` is the normal baseline for a substantive review.
 
 ## How to invoke codex (first turn)
 
@@ -37,23 +46,24 @@ Use the non-interactive `codex exec` subcommand. Write the prompt to a file with
 
 ```bash
 codex exec \
-  -m gpt-5.5 \
+  -m gpt-5.6-sol \
   -c model_reasoning_effort=high \
   --sandbox read-only \
   --skip-git-repo-check \
   -C "$(pwd)" \
-  -o "$CODEX_DIR/response.md" \
-  - < "$CODEX_DIR/prompt.md" \
-  > "$CODEX_DIR/log.txt" 2>&1
+  -o "<codex-dir>/response.md" \
+  - < "<codex-dir>/prompt.md" \
+  > "<codex-dir>/log.txt" 2>&1
 ```
+
+Replace `<codex-dir>` with the literal path returned by `mktemp`.
 
 Flags:
 
-- `-m gpt-5.5` — always use this model. Don't fall back to the default.
-- `-c model_reasoning_effort=high` — default reasoning effort. For **very contentious** questions (e.g. the user is pushing back hard on codex, repeated disagreements, or a high-stakes architectural call where you need codex to genuinely stress-test the position), bump to `xhigh` instead. Don't escalate by default — high is the baseline.
-- `--sandbox read-only` — governs *shell commands codex may execute*, not file reads; codex can still read files under `-C`. Use `workspace-write` only if the user explicitly wants codex to make changes.
+- `-m` and `model_reasoning_effort` — choose them from the table above; do not rely on the caller's configured defaults.
+- `--sandbox read-only` — governs *shell commands codex may execute*, not file reads; codex can still read files under `-C`. Keep this review skill read-only.
 - `--skip-git-repo-check` — avoids failures when cwd isn't a git root.
-- `-C <dir>` — working directory codex sees. Point at the repo/package relevant to the question. For this monorepo usually `yarn-project` or the git root.
+- `-C <dir>` — working directory codex sees. Point it at the narrowest repo or package that contains all files relevant to the question.
 - `-o <file>` — write codex's final message to a file. Read from here cleanly rather than parsing the noisy event log.
 - `-` — read the prompt from stdin (the piped prompt file).
 - Redirect all stdout+stderr to `log.txt` so you can extract the session id.
@@ -65,15 +75,14 @@ Codex calls can take several minutes. Run in the background (`run_in_background:
 After the call finishes, extract the session id from the log so follow-ups can resume the same conversation. `codex exec` prints a `session id: <uuid>` line in its human-readable log; anchor on that prefix so an unrelated UUID in the echoed prompt can't be matched by accident:
 
 ```bash
-grep -oE 'session id: [0-9a-f-]{36}' "$CODEX_DIR/log.txt" \
-  | awk '{print $3}' | head -n 1 > "$CODEX_DIR/session_id"
+grep -m 1 -oE 'session id: [0-9a-f-]{36}' "<codex-dir>/log.txt"
 ```
 
-This depends on the human-readable log format. If it ever breaks, switch to `--json` and parse the session-start event (verify the field name from one sample run first — don't guess).
+Copy the UUID after `session id:` from the output. This depends on the human-readable log format. If it ever breaks, switch to `--json` and inspect one session-start event before choosing a field to parse — do not guess the field name.
 
 If the grep comes up empty, fall back to `--last` when resuming — it picks the most recent session globally, so only safe if no other codex session has started since. Save the session id alongside the response path for the rest of the conversation:
 
-> "Codex session: `<uuid>` (files in `$CODEX_DIR`)"
+> "Codex session: `<uuid>` (files in `<codex-dir>`)"
 
 ## Following up / resuming
 
@@ -81,21 +90,21 @@ If codex's response is unclear, seems wrong, or you want to push back, **resume 
 
 ```bash
 # Write the follow-up prompt
-# (use the Write tool to create $CODEX_DIR/followup-N.md)
+# (use the Write tool to create <codex-dir>/followup-N.md)
 
-codex exec resume "$(cat "$CODEX_DIR/session_id")" \
-  -m gpt-5.5 \
+codex exec resume "<session-uuid>" \
+  -m gpt-5.6-sol \
   -c model_reasoning_effort=high \
-  -o "$CODEX_DIR/response-N.md" \
-  - < "$CODEX_DIR/followup-N.md" \
-  >> "$CODEX_DIR/log.txt" 2>&1
+  -o "<codex-dir>/response-N.md" \
+  - < "<codex-dir>/followup-N.md" \
+  >> "<codex-dir>/log.txt" 2>&1
 ```
 
-`codex exec resume` does **not** accept `--sandbox`, `-C`, or `--skip-git-repo-check` — only `--last`, `-o`, `-m`, `-i`, `--ephemeral`, and a few others. If cwd matters for the follow-up, `cd` into the right directory before calling resume. Keep `-m gpt-5.5` and `-c model_reasoning_effort=high` (or `xhigh` if the disagreement that prompted the resume is contentious enough to warrant it).
+`codex exec resume` does not accept `--sandbox` or `-C`. Run it from the relevant working directory. Keep the original model and reasoning effort unless the follow-up has materially increased the difficulty; for example, escalate a routine Terra/medium review to Sol/high when the first response exposes deeper ambiguity. Reserve Sol/xhigh for the exceptional cases in the table above.
 
 Use numbered filenames (`response-2.md`, `followup-2.md`, …) so earlier turns aren't overwritten. Resume whenever you disagree with codex, need clarification, want to point out an error in its response, or want to test whether it holds its position under pushback. Starting a new session throws away its context and often wastes a round-trip re-establishing the setup.
 
-If `session_id` is empty, use `codex exec resume --last ...` instead — but only if you're confident no other codex session has run in the meantime, since `--last` is global.
+If no UUID was extracted, use `codex exec resume --last ...` instead — but only if you're confident no other codex session has run in the meantime, since `--last` is global.
 
 ## Writing the prompt
 
@@ -150,4 +159,4 @@ Don't just relay codex's response to the user. Do your own pass:
 - **Weigh concerns by strength**: distinguish real objections from surface-level nitpicks.
 - **Flag disagreements explicitly**: if codex contradicts something you believe, tell the user both views and your current take — don't silently flip.
 - **Resume rather than start over**: if you have a specific pushback or clarifying question, resume the session (see above) instead of opening a new one.
-- **Summarize for the user**: a short digest ("codex flagged X and Y, I think X is valid and Y is a misread because...") is more useful than pasting the raw response. Offer the full response file path (`$CODEX_DIR/response.md`) in case they want to read it directly.
+- **Summarize for the user**: a short digest ("codex flagged X and Y, I think X is valid and Y is a misread because...") is more useful than pasting the raw response. Offer the full response file path (`<codex-dir>/response.md`) in case they want to read it directly.
