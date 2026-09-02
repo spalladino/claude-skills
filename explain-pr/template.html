@@ -1,0 +1,440 @@
+<title>REPLACE: short name of the change</title>
+<!--
+  PR EXPLAINER TEMPLATE (Artifact fragment)
+
+  This file is published with the Artifact tool, which wraps it in its own
+  <!doctype>/<html>/<head>/<body>. So: NO doctype, html, head or body tags here.
+  Keep <title> and <style> at the top. No external assets of any kind.
+
+  HOW IT WORKS
+  - Every explainer node is one <section class="node"> inside #nodes.
+  - The hierarchy comes from data-parent (empty for the root). The script builds
+    the sidebar tree, breadcrumbs, the "zoom in" child menu, prev/next links and
+    #hash navigation from those sections. You write sections; you never touch
+    the script or the shell markup.
+  - Show one node at a time: the script does the hiding/showing.
+
+  SECTION ATTRIBUTES
+    id             kebab-case, unique; also the #hash
+    data-parent    id of the parent section ("" for the root)
+    data-title     short noun phrase shown in the tree and breadcrumbs
+    data-summary   ONE plain sentence shown in the parent's zoom-in menu
+    data-attention "high" | "medium" | "low"   (how carefully to review)
+    data-kind      "overview" | "design" | "module" | "code" | "tests" | "wiring"
+    data-pr        optional, e.g. "#25282" for stacks
+
+  BLOCKS INSIDE A SECTION (use the ones that apply, in this order)
+    <h1>                          title (same as data-title)
+    <p class="lede">              two or three plain sentences: what this node is about
+    <div class="block where">     "Where this lives" — what the touched module does,
+                                  who uses it, BEFORE this change. Background.
+    <div class="block what">      "What changes" — the change itself, in bullets
+    <div class="block why">       "Why" — the reason / the problem it solves
+    <div class="block example">   "Example" — one simple, concrete walk-through
+    <div class="block code">      "The code" — one or more <figure> with a trimmed
+                                  diff or snippet plus a short annotation list
+    <div class="block check">     "What to check when reviewing" — concrete questions
+    <div class="block files">     "Files" — the paths this node touches
+
+  Cross-links between nodes: <a href="#other-node-id">…</a>
+  Terms defined for the reader: <dfn>term</dfn>
+  Small inline tags: <span class="tag">new</span>
+-->
+<style>
+  :root {
+    --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --font-mono: "SF Mono", "JetBrains Mono", "Fira Code", Menlo, Consolas, monospace;
+
+    --bg: #f6f7f8;
+    --surface: #ffffff;
+    --surface-2: #f0f2f4;
+    --text: #1f2328;
+    --text-soft: #59636e;
+    --border: #dfe3e7;
+    --accent: #2f6feb;
+    --accent-soft: #e8f0fe;
+
+    --high: #c0392b;   --high-bg: #fdecea;
+    --medium: #b7791f; --medium-bg: #fdf4e1;
+    --low: #5f6b7a;    --low-bg: #eef1f4;
+
+    --add-bg: #e6f4ea; --add-fg: #1a7f37;
+    --del-bg: #fce8e6; --del-fg: #b3261e;
+
+    --where: #6b40c9;  --where-bg: #f3eefc;
+    --check: #1a7f55;  --check-bg: #e8f6ee;
+    --example: #2f6feb; --example-bg: #eaf1fe;
+
+    --radius: 10px;
+    --sidebar: 300px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0f1115; --surface: #171a20; --surface-2: #1f232b;
+      --text: #e6e8eb; --text-soft: #9aa4b2; --border: #2a2f3a;
+      --accent: #7aa2ff; --accent-soft: #1b2438;
+      --high: #ff7b6e; --high-bg: #2b1715;
+      --medium: #e2b45a; --medium-bg: #2a2212;
+      --low: #a3adba; --low-bg: #1e232b;
+      --add-bg: #12261a; --add-fg: #6fd28a;
+      --del-bg: #2c1614; --del-fg: #ff8a80;
+      --where: #b79bff; --where-bg: #1f1a30;
+      --check: #62c98f; --check-bg: #122419;
+      --example: #7aa2ff; --example-bg: #16202e;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0f1115; --surface: #171a20; --surface-2: #1f232b;
+    --text: #e6e8eb; --text-soft: #9aa4b2; --border: #2a2f3a;
+    --accent: #7aa2ff; --accent-soft: #1b2438;
+    --high: #ff7b6e; --high-bg: #2b1715;
+    --medium: #e2b45a; --medium-bg: #2a2212;
+    --low: #a3adba; --low-bg: #1e232b;
+    --add-bg: #12261a; --add-fg: #6fd28a;
+    --del-bg: #2c1614; --del-fg: #ff8a80;
+    --where: #b79bff; --where-bg: #1f1a30;
+    --check: #62c98f; --check-bg: #122419;
+    --example: #7aa2ff; --example-bg: #16202e;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: var(--font-body); font-size: 16px; line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code, pre { font-family: var(--font-mono); font-size: 0.86em; }
+  code { background: var(--surface-2); padding: 0.1em 0.35em; border-radius: 5px; }
+  pre code { background: none; padding: 0; font-size: inherit; }
+  dfn { font-style: normal; font-weight: 600; border-bottom: 2px dotted var(--accent); }
+
+  /* ─── Layout ───────────────────────────────────────────────────── */
+  .app { display: grid; grid-template-columns: var(--sidebar) 1fr; min-height: 100vh; }
+  .sidebar {
+    border-right: 1px solid var(--border); background: var(--surface);
+    padding: 1rem 0.75rem; position: sticky; top: 0; height: 100vh; overflow-y: auto;
+  }
+  .sidebar .brand { font-weight: 700; padding: 0.25rem 0.5rem 0.75rem; font-size: 0.95rem; }
+  .sidebar .hint { color: var(--text-soft); font-size: 0.78rem; padding: 0.75rem 0.5rem 0; border-top: 1px solid var(--border); margin-top: 1rem; }
+  .sidebar kbd { font-family: var(--font-mono); font-size: 0.75rem; background: var(--surface-2); border: 1px solid var(--border); border-radius: 4px; padding: 0 0.3em; }
+  .main { padding: clamp(1rem, 3vw, 2.5rem) clamp(1rem, 4vw, 3rem) 5rem; max-width: 900px; width: 100%; }
+  @media (max-width: 860px) {
+    .app { grid-template-columns: 1fr; }
+    .sidebar { position: static; height: auto; border-right: 0; border-bottom: 1px solid var(--border); }
+  }
+
+  /* ─── Tree ─────────────────────────────────────────────────────── */
+  .tree ul { list-style: none; margin: 0; padding-left: 0.9rem; }
+  .tree > ul { padding-left: 0; }
+  .tree li { margin: 1px 0; }
+  .tree .row { display: flex; align-items: center; gap: 0.3rem; }
+  .tree .toggle {
+    width: 1.1rem; height: 1.1rem; flex: none; border: 0; background: none; color: var(--text-soft);
+    cursor: pointer; font-size: 0.7rem; padding: 0; line-height: 1;
+  }
+  .tree .toggle.leaf { visibility: hidden; }
+  .tree a {
+    flex: 1; display: flex; align-items: center; gap: 0.4rem; padding: 0.25rem 0.5rem;
+    border-radius: 6px; color: var(--text); font-size: 0.9rem; min-width: 0;
+  }
+  .tree a .t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tree a:hover { background: var(--surface-2); text-decoration: none; }
+  .tree a.active { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+  .tree li.collapsed > ul { display: none; }
+  .dot { width: 0.55rem; height: 0.55rem; border-radius: 50%; flex: none; background: var(--low); }
+  .dot.high { background: var(--high); } .dot.medium { background: var(--medium); }
+
+  /* ─── Node header ──────────────────────────────────────────────── */
+  .crumbs { font-size: 0.85rem; color: var(--text-soft); display: flex; flex-wrap: wrap; gap: 0.35rem; margin-bottom: 1rem; }
+  .crumbs a { color: var(--text-soft); }
+  .crumbs .sep { opacity: 0.5; }
+  .node h1 { font-size: 1.7rem; line-height: 1.25; margin: 0 0 0.5rem; letter-spacing: -0.01em; }
+  .meta { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 0 0 1rem; }
+  .badge { font-size: 0.75rem; font-weight: 600; padding: 0.15rem 0.55rem; border-radius: 999px; background: var(--low-bg); color: var(--low); }
+  .badge.high { background: var(--high-bg); color: var(--high); }
+  .badge.medium { background: var(--medium-bg); color: var(--medium); }
+  .badge.pr { background: var(--accent-soft); color: var(--accent); }
+  .tag { font-size: 0.72rem; font-weight: 600; padding: 0.05rem 0.45rem; border-radius: 999px; background: var(--accent-soft); color: var(--accent); vertical-align: middle; }
+  .lede { font-size: 1.1rem; color: var(--text); margin: 0 0 1.25rem; }
+
+  /* ─── Blocks ───────────────────────────────────────────────────── */
+  .block { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem 1.25rem; margin: 0 0 1rem; }
+  .block > h3 { margin: 0 0 0.6rem; font-size: 0.8rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-soft); }
+  .block p, .block ul, .block ol { margin: 0.4rem 0; }
+  .block li { margin: 0.25rem 0; }
+  .block ul, .block ol { padding-left: 1.25rem; }
+  .block.where { border-left: 4px solid var(--where); }
+  .block.where > h3 { color: var(--where); }
+  .block.example { border-left: 4px solid var(--example); background: var(--example-bg); }
+  .block.example > h3 { color: var(--example); }
+  .block.check { border-left: 4px solid var(--check); }
+  .block.check > h3 { color: var(--check); }
+  .block.files code { font-size: 0.8rem; }
+  .block.files li { list-style: none; margin-left: -1.25rem; }
+
+  /* ─── Code / diffs ─────────────────────────────────────────────── */
+  figure { margin: 0.75rem 0 0; }
+  figcaption { font-family: var(--font-mono); font-size: 0.78rem; color: var(--text-soft); margin-bottom: 0.35rem; word-break: break-all; }
+  pre { margin: 0; background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 0.75rem 0.9rem; overflow-x: auto; line-height: 1.5; }
+  pre .add { display: block; background: var(--add-bg); color: var(--add-fg); margin: 0 -0.9rem; padding: 0 0.9rem; }
+  pre .del { display: block; background: var(--del-bg); color: var(--del-fg); margin: 0 -0.9rem; padding: 0 0.9rem; }
+  pre .ctx { display: block; color: var(--text-soft); }
+  pre .skip { display: block; color: var(--text-soft); opacity: 0.6; font-style: italic; }
+  pre .mark { display: inline-block; min-width: 1.3em; text-align: center; border-radius: 999px; background: var(--accent); color: #fff; font-size: 0.75em; font-weight: 700; margin-right: 0.4em; font-family: var(--font-body); }
+  ol.notes { margin: 0.5rem 0 0; padding-left: 0; list-style: none; counter-reset: n; }
+  ol.notes li { counter-increment: n; padding-left: 1.9rem; position: relative; margin: 0.3rem 0; font-size: 0.95rem; }
+  ol.notes li::before { content: counter(n); position: absolute; left: 0; top: 0.2rem; width: 1.3rem; height: 1.3rem; border-radius: 999px; background: var(--accent); color: #fff; font-size: 0.75rem; font-weight: 700; display: grid; place-items: center; }
+
+  /* ─── Children menu ("zoom in") ────────────────────────────────── */
+  .zoom { margin: 1.5rem 0 0; }
+  .zoom h3 { font-size: 0.8rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-soft); margin: 0 0 0.6rem; }
+  .zoom .cards { display: grid; gap: 0.6rem; }
+  .zoom a.card {
+    display: grid; grid-template-columns: auto 1fr auto; align-items: start; gap: 0.6rem;
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 0.8rem 1rem; color: var(--text);
+  }
+  .zoom a.card:hover { border-color: var(--accent); text-decoration: none; }
+  .zoom a.card .dot { margin-top: 0.5rem; }
+  .zoom a.card .title { font-weight: 600; }
+  .zoom a.card .sum { color: var(--text-soft); font-size: 0.92rem; }
+  .zoom a.card .arrow { color: var(--text-soft); margin-top: 0.1rem; }
+
+  /* ─── Prev / next ──────────────────────────────────────────────── */
+  .pager { display: flex; justify-content: space-between; gap: 1rem; margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--border); font-size: 0.9rem; }
+  .pager a { max-width: 48%; }
+  .pager .lbl { display: block; font-size: 0.75rem; color: var(--text-soft); }
+
+  [hidden] { display: none !important; }
+</style>
+
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand" id="brand">REPLACE: short name of the change</div>
+    <nav class="tree" id="tree"></nav>
+    <div class="hint">
+      Start at the top and zoom in only where you need to.
+      <kbd>j</kbd>/<kbd>k</kbd> next/prev · <kbd>h</kbd> up · <kbd>l</kbd> first child
+    </div>
+  </aside>
+  <main class="main">
+    <div class="crumbs" id="crumbs"></div>
+    <div id="view"></div>
+  </main>
+</div>
+
+<div id="nodes" hidden>
+
+  <!-- ══ ROOT: the big picture. Always id="overview", data-parent="". ══ -->
+  <section class="node" id="overview" data-parent="" data-title="Overview"
+           data-summary="What this change does and why, in one screen."
+           data-attention="low" data-kind="overview">
+    <h1>REPLACE: the goal, as a plain sentence</h1>
+    <p class="lede">REPLACE: two or three sentences a newcomer can follow. What problem existed, what the change does about it, and what the reader will find below.</p>
+
+    <div class="block where">
+      <h3>Where this lives</h3>
+      <p>REPLACE: the area of the system this touches, what it is for, and how it fits with the rest. Define any term the reader will see later: a <dfn>sequencer</dfn> is the node that orders transactions into a block.</p>
+    </div>
+
+    <div class="block what">
+      <h3>What changes</h3>
+      <ul>
+        <li>REPLACE: one bullet per big piece, each pointing at its node: <a href="#piece-one">Piece one</a>.</li>
+      </ul>
+    </div>
+
+    <div class="block example">
+      <h3>Example</h3>
+      <p>REPLACE: a tiny concrete before/after that shows the change from the outside.</p>
+    </div>
+
+    <div class="block check">
+      <h3>What to check when reviewing</h3>
+      <ul>
+        <li>REPLACE: the two or three things that matter most, each linked to the node where the code is.</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ══ For a PR stack, add one node per PR under the overview, or one node per
+       sub-problem with data-pr set. Then mechanisms, then code. Depth is free. ══ -->
+  <section class="node" id="piece-one" data-parent="overview" data-title="Piece one"
+           data-summary="REPLACE: one sentence." data-attention="high" data-kind="design" data-pr="#00000">
+    <h1>REPLACE: piece one</h1>
+    <p class="lede">REPLACE.</p>
+    <div class="block where"><h3>Where this lives</h3><p>REPLACE.</p></div>
+    <div class="block what"><h3>What changes</h3><ul><li>REPLACE.</li></ul></div>
+    <div class="block check"><h3>What to check when reviewing</h3><ul><li>REPLACE.</li></ul></div>
+  </section>
+
+  <section class="node" id="piece-one-code" data-parent="piece-one" data-title="The key code"
+           data-summary="REPLACE: one sentence." data-attention="high" data-kind="code">
+    <h1>REPLACE: the key code</h1>
+    <p class="lede">REPLACE.</p>
+    <div class="block code">
+      <h3>The code</h3>
+      <figure>
+        <figcaption>path/to/file.ts · lines 24–38 (after the change)</figcaption>
+<pre><code><span class="ctx">  async getMany(keys) {</span>
+<span class="add">+   <span class="mark">1</span>const fromOverlay = this.overlay.getMany(keys);</span>
+<span class="add">+   <span class="mark">2</span>const missing = keys.filter((k, i) =&gt; fromOverlay[i] === undefined);</span>
+<span class="skip">    … 6 unchanged lines …</span>
+<span class="del">-   return this.snapshot.getMany(keys);</span>
+<span class="add">+   return merge(fromOverlay, await this.snapshot.getMany(missing));</span>
+<span class="ctx">  }</span></code></pre>
+        <ol class="notes">
+          <li>REPLACE: what marker 1 does and why it matters.</li>
+          <li>REPLACE: what marker 2 does and why it matters.</li>
+        </ol>
+      </figure>
+    </div>
+    <div class="block check"><h3>What to check when reviewing</h3><ul><li>REPLACE.</li></ul></div>
+    <div class="block files"><h3>Files</h3><ul><li><code>path/to/file.ts</code></li></ul></div>
+  </section>
+
+</div>
+
+<script>
+(function () {
+  const sections = Array.from(document.querySelectorAll('#nodes > section.node'));
+  const byId = new Map(sections.map(s => [s.id, s]));
+  const children = new Map();
+  sections.forEach(s => {
+    const p = s.dataset.parent || '';
+    if (!children.has(p)) children.set(p, []);
+    children.get(p).push(s);
+  });
+  const roots = children.get('') || [];
+  const order = [];
+  (function walk(list) { list.forEach(s => { order.push(s.id); walk(children.get(s.id) || []); }); })(roots);
+
+  const title = document.querySelector('title');
+  if (title) document.getElementById('brand').textContent = title.textContent;
+
+  // Sidebar tree
+  function buildTree(list) {
+    const ul = document.createElement('ul');
+    list.forEach(s => {
+      const li = document.createElement('li');
+      li.dataset.id = s.id;
+      const kids = children.get(s.id) || [];
+      const row = document.createElement('div');
+      row.className = 'row';
+      const tg = document.createElement('button');
+      tg.className = 'toggle' + (kids.length ? '' : ' leaf');
+      tg.textContent = '▾';
+      tg.setAttribute('aria-label', 'toggle');
+      tg.addEventListener('click', () => { li.classList.toggle('collapsed'); tg.textContent = li.classList.contains('collapsed') ? '▸' : '▾'; });
+      const a = document.createElement('a');
+      a.href = '#' + s.id;
+      a.dataset.id = s.id;
+      a.innerHTML = '<span class="dot ' + (s.dataset.attention || 'low') + '"></span><span class="t"></span>';
+      a.querySelector('.t').textContent = s.dataset.title || s.id;
+      row.appendChild(tg); row.appendChild(a); li.appendChild(row);
+      if (kids.length) li.appendChild(buildTree(kids));
+      ul.appendChild(li);
+    });
+    return ul;
+  }
+  const tree = document.getElementById('tree');
+  tree.appendChild(buildTree(roots));
+
+  function ancestors(id) {
+    const out = [];
+    let s = byId.get(id);
+    while (s) { out.unshift(s); s = byId.get(s.dataset.parent || ''); }
+    return out;
+  }
+
+  const view = document.getElementById('view');
+  const crumbs = document.getElementById('crumbs');
+  let current = null;
+
+  function show(id) {
+    if (!byId.has(id)) id = order[0];
+    if (!id) return;
+    current = id;
+    const s = byId.get(id);
+
+    // breadcrumbs
+    crumbs.innerHTML = '';
+    ancestors(id).forEach((a, i, arr) => {
+      if (i) { const sep = document.createElement('span'); sep.className = 'sep'; sep.textContent = '›'; crumbs.appendChild(sep); }
+      if (i === arr.length - 1) { const sp = document.createElement('span'); sp.textContent = a.dataset.title || a.id; crumbs.appendChild(sp); }
+      else { const l = document.createElement('a'); l.href = '#' + a.id; l.textContent = a.dataset.title || a.id; crumbs.appendChild(l); }
+    });
+
+    // content
+    view.innerHTML = '';
+    const node = s.cloneNode(true);
+    node.removeAttribute('id');
+    const meta = document.createElement('div');
+    meta.className = 'meta';
+    const att = s.dataset.attention || 'low';
+    const attLabel = { high: 'Review carefully', medium: 'Worth a look', low: 'Skim' }[att] || att;
+    meta.innerHTML = '<span class="badge ' + att + '">' + attLabel + '</span>' +
+      (s.dataset.kind ? '<span class="badge">' + s.dataset.kind + '</span>' : '') +
+      (s.dataset.pr ? '<span class="badge pr">' + s.dataset.pr + '</span>' : '');
+    const h1 = node.querySelector('h1');
+    if (h1) h1.insertAdjacentElement('afterend', meta); else node.prepend(meta);
+    view.appendChild(node);
+
+    // zoom-in menu
+    const kids = children.get(id) || [];
+    if (kids.length) {
+      const z = document.createElement('div');
+      z.className = 'zoom';
+      z.innerHTML = '<h3>Zoom in</h3><div class="cards"></div>';
+      const cards = z.querySelector('.cards');
+      kids.forEach(k => {
+        const a = document.createElement('a');
+        a.className = 'card'; a.href = '#' + k.id;
+        a.innerHTML = '<span class="dot ' + (k.dataset.attention || 'low') + '"></span><span><span class="title"></span><br><span class="sum"></span></span><span class="arrow">→</span>';
+        a.querySelector('.title').textContent = (k.dataset.title || k.id) + (k.dataset.pr ? ' (' + k.dataset.pr + ')' : '');
+        a.querySelector('.sum').textContent = k.dataset.summary || '';
+        cards.appendChild(a);
+      });
+      view.appendChild(z);
+    }
+
+    // pager
+    const i = order.indexOf(id);
+    const pager = document.createElement('div');
+    pager.className = 'pager';
+    const prev = i > 0 ? byId.get(order[i - 1]) : null;
+    const next = i < order.length - 1 ? byId.get(order[i + 1]) : null;
+    pager.innerHTML = (prev ? '<a href="#' + prev.id + '"><span class="lbl">← Previous</span><span class="pt"></span></a>' : '<span></span>') +
+      (next ? '<a href="#' + next.id + '" style="text-align:right"><span class="lbl">Next →</span><span class="pt"></span></a>' : '<span></span>');
+    const pts = pager.querySelectorAll('.pt');
+    if (prev) pts[0].textContent = prev.dataset.title || prev.id;
+    if (next) pts[pts.length - 1].textContent = next.dataset.title || next.id;
+    view.appendChild(pager);
+
+    // tree highlight + expand ancestors
+    tree.querySelectorAll('a.active').forEach(a => a.classList.remove('active'));
+    const link = tree.querySelector('a[data-id="' + id + '"]');
+    if (link) {
+      link.classList.add('active');
+      let li = link.closest('li');
+      while (li) { li.classList.remove('collapsed'); const t = li.querySelector(':scope > .row > .toggle'); if (t) t.textContent = '▾'; li = li.parentElement.closest('li'); }
+      link.scrollIntoView({ block: 'nearest' });
+    }
+    window.scrollTo({ top: 0 });
+  }
+
+  function go(id) { if (id && byId.has(id)) location.hash = id; }
+  window.addEventListener('hashchange', () => show(location.hash.slice(1)));
+  document.addEventListener('keydown', e => {
+    if (e.target && /INPUT|TEXTAREA/.test(e.target.tagName)) return;
+    const i = order.indexOf(current);
+    if (e.key === 'j') go(order[i + 1]);
+    else if (e.key === 'k') go(order[i - 1]);
+    else if (e.key === 'h') { const s = byId.get(current); go(s && s.dataset.parent); }
+    else if (e.key === 'l') { const k = children.get(current); go(k && k[0] && k[0].id); }
+  });
+  show(location.hash.slice(1));
+})();
+</script>
