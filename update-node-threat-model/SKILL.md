@@ -28,10 +28,6 @@ git -C ~/Projects/claudebox fetch origin labs-main
 git -C ~/Projects/claudebox worktree add -b spl/threat-model-<slug> <scratchpad>/wt-threat-<slug> origin/labs-main
 ```
 
-The remote is SSH. If the fetch or push fails with `Permission denied (publickey)` or an
-`ssh_askpass` error, the sandbox is blocking the SSH agent: rerun that one git command with the
-sandbox disabled.
-
 ## 2. Delegate the edit
 
 Spawn one `Agent` with `subagent_type: "threat-model-editor"` (its definition pins Opus at high
