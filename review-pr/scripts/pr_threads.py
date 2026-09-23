@@ -201,7 +201,7 @@ def main():
 
         out.write(f"### T{i} — {star(participants)}{login(first)} on `{t['path']}`"
                   f"{f' line {line}' if line else ' (no current line)'}{' (outdated)' if t['isOutdated'] else ''}\n\n")
-        out.write(f"thread url: {first.get('url', '')}\n")
+        out.write(f"thread url: {first.get('url', '')}\nthread id: `{t['id']}` (use this to reply within a review)\n")
         out.write(f"position: original line {t.get('originalLine')} ({side} side of the diff at the time)"
                   f" · current line at head: {line if line else 'none — line removed, moved, or a file-level comment'}\n")
         if new_path:

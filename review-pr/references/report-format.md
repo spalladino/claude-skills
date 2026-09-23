@@ -39,12 +39,20 @@ must preserve, the risky part, what the author says they did not do.>
 
 ## 2. How it does it
 
-| Module / file | Responsibility before | What changed | Notes |
-|---|---|---|---|
-| `path` | … | … | breaking / new dep / moved |
+<The design, not the diff. Three to six sentences, the way the author would explain it at a
+whiteboard: what new piece or concept the PR introduces, which existing piece takes on the
+work and why there, how data flows between them, and what deliberately stays as it was. A
+reader should be able to draw the boxes and arrows from this paragraph alone. No file names
+here; the table below carries them.>
 
-<A numbered list for the mechanism, in execution order. One short diagram in a fenced block
-if the flow is not linear.>
+| Part | Job | Lives in |
+|---|---|---|
+| <a responsibility, named as a concept> | <one clause: what it does for the whole> | `path` |
+
+<Three to seven rows, one per responsibility, never one per file. Then one line for
+everything mechanical: "Mechanical: 11 call sites updated, generated CLI reference, one
+test moved." Optional: a numbered flow of at most five steps, only when the order of
+operations is not obvious from the paragraph.>
 
 **Breaking or externally visible changes.** <Bullets: public API signatures, wire or storage
 formats, config defaults, CLI flags, error types. "None found" if none.>
@@ -109,7 +117,10 @@ turned into questions. Keep this honest; it is the most read section after "At a
 
 Rules:
 
-- "At a glance" and §1 are for a reader who has never seen the module. §2 is for one who has.
+- "At a glance" and §1 are for a reader who has never seen the module. §2 is for one who has,
+  but it is still the shape of the solution, not a list of edits: if a table row reads like a
+  commit message or names functions one after another, rewrite it as a responsibility or cut
+  it. File-level detail is in the dossier and the diff; the reader has both.
 - Every finding in 3 and 4 has an id (`B1`, `D2`) so the user can refer to it; thread ids
   (`T1`) match `threads.md`, top-level asks are `R1…`.
 - Never soften a finding to avoid conflict with the PR author; never harden one to seem

@@ -1,7 +1,7 @@
 ---
 name: review-pr
-description: Review a GitHub PR for a human reviewer with little context — explain what it does and why, how it does it, the bugs found by reading the code, design and simplification opportunities, and the exact status of every unresolved discussion. Read-only — never posts, replies, resolves or edits. Use when the user asks to review a PR ("review PR 123", "/review-pr 123 --codex"). Flags: --codex (second opinion), --tests [pattern] (bootstrap and run tests or benchmarks), --html (publish an artifact); "gc" cleans cached worktrees.
-argument-hint: "<PR number> [--codex] [--tests [pattern]] [--html] | gc"
+description: Review a GitHub PR for a human reviewer with little context — explain what it does and why, how it does it, the bugs found by reading the code, design and simplification opportunities, and the exact status of every unresolved discussion. Read-only by default — never posts, replies, resolves or edits; when the user names findings to post, drafts them via a sonnet and posts them as one signed GitHub review. Use when the user asks to review a PR ("review PR 123", "/review-pr 123 --codex") or, after a review, to post some of its findings. Flags: --codex (second opinion), --tests [pattern] (bootstrap and run tests or benchmarks), --html (publish an artifact); "gc" cleans cached worktrees.
+argument-hint: "<PR number> [--codex] [--tests [pattern]] [--html] | post <ids> as <comment|approve|request-changes|pending> | gc"
 disable-model-invocation: true
 ---
 
@@ -15,8 +15,10 @@ tries to refute what the forks found.
 ## Ground rules
 
 - **Read-only, everywhere.** Never post a comment or review, never react, resolve, label,
-  approve, merge, push, or edit Linear. Never modify the worktree or the repo. Every
-  subagent and codex prompt repeats the line below; keep it there:
+  approve, merge, push, or edit Linear. Never modify the worktree or the repo. The single
+  exception is Step 9, which posts exactly the items the user named, as one review, after
+  they have seen the drafts. Every subagent and codex prompt repeats the line below; keep it
+  there:
   > Read-only: do not post, reply, react, resolve or edit anything on GitHub or Linear; do
   > not modify files in the worktree or repo; do not install dependencies, build, or run
   > tests. Your only output is the file named in this prompt.
@@ -44,6 +46,7 @@ $WORK/notes.md            # your understanding, written once before forking
 $WORK/findings-{bugs,design,threads}.md   # returned by the forks as text, saved by you
 $WORK/verify.md           # verdicts from the cold verifier
 $WORK/review.md           # the deliverable
+$WORK/post-plan.md, post.json  # Step 9 only: what to post, and the drafted comments
 $WORK/history/            # previous review.md files, one per head
 ```
 
@@ -204,6 +207,16 @@ preamble. If the user only wants a summary, they will say so.
 
 Follow `references/html.md`: a sonnet subagent converts `review.md` mechanically into
 `$WORK/review.html`; you publish it with the Artifact tool and give the URL.
+
+## Step 9 — post comments (only when the user names what to post)
+
+Follow `references/post.md`. The user picks the items and the review action (`comment`,
+`approve`, `request changes`, `pending`); if the action is missing, ask. You write the
+points, a sonnet drafts the wording into `post.json`, you check every sentence, show the
+dry-run, and on their go run `scripts/post_review.py`, which posts everything as **one**
+review pinned to the reviewed head and signs each comment
+`_Written by Claude <model> at <me>'s request._`. `pending` leaves the review open for them
+to submit from the web.
 
 ## `gc`
 
