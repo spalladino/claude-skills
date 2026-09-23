@@ -11,6 +11,8 @@ Rules:
 - `$REPO` = `git rev-parse --show-toplevel`. All paths are repo-root-relative POSIX paths,
   exactly as `git diff --name-only` prints them.
 - Work dir `$WORK` is given to you. Create it with `mkdir -p`.
+- `$SKILL_DIR` is the parent of this file's `references/` directory (the one holding
+  `SKILL.md` and `scripts/`).
 
 ---
 
@@ -56,11 +58,19 @@ range → `<shortbase>-<shorthead>`. Kebab-case only.
 `@@ -a,b +c,d @@` touches head lines `c .. c+d-1`. A missing count means 1. `d == 0` is a
 pure deletion: record `head <c> (deletion)`.
 
+**Do not do this by hand.** `$SKILL_DIR/scripts/dossier_files.py` emits the whole
+`### Files (#n)` section for one `base..head` range — file headings with counts, the
+`imported by:` heuristic, every -U3 hunk verbatim under a heading carrying the head range
+from the -U0 arithmetic — plus a `skipped:` list for paths matching `--skip`:
+
 ```bash
-git diff -U0 $BASE..$HEAD -- <path> | grep -E '^@@' | \
-  sed -E 's/^@@ -[0-9,]+ \+([0-9]+)(,([0-9]+))? @@.*/\1 \3/' | \
-  awk '{n=($2==""?1:$2); if(n==0) print $1" DELETION"; else print $1"-"($1+n-1)}'
+python3 $SKILL_DIR/scripts/dossier_files.py $REPO <base> <head> <prnum> \
+  --skip '(\.lock$|gas_report|gas_benchmark|Prover\.toml|\.snap$|/generated/)' >> $WORK/dossier.md
 ```
+
+Run it once per PR in stack order, after writing that PR's header block (§4). Extend
+`--skip` with whatever the repo marks as generated; check the first 5 lines of anything
+large for `@generated`. Spot-check one hunk per PR against `git diff -U0`.
 
 ## 4. Write `$WORK/dossier.md`
 
@@ -70,7 +80,7 @@ put each PR's files under its own `### Files (#n)` heading using that PR's own b
 ````markdown
 # Dossier: <slug>
 
-repo: <owner/repo>   base `<BASE>` → head `<HEAD>`
+repo: <owner/repo>   root: <absolute repo root>   base `<BASE>` → head `<HEAD>`
 stack: #25254 (cee7f40→9b21c05) → #25282 (9b21c05→38e30f9)     # omit for a single PR
 
 ## PR #25254 "<title>" — <url>
@@ -124,7 +134,8 @@ Report **only** this, as plain lines:
 ```
 slug: pr-25254-25282
 repo: aztecprotocol/aztec-packages
-base: cee7f40   head: 38e30f9
+root: /home/santiago/Projects/aztec-packages
+base: cee7f40   head: 38e30f9c1d2e0f (full sha)
 stack: #25254 cee7f40→9b21c05 "title" · #25282 9b21c05→38e30f9 "title"
 files: 14 changed (+412 −96), 2 skipped (yarn.lock, src/generated/api.ts)
 dossier: <$WORK>/dossier.md (612 lines, 38 hunks)

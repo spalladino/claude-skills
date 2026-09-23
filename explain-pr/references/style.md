@@ -41,14 +41,25 @@ The reader may land on a node from a link or the pager. Its `lede:` must say wha
 is and why it exists relative to its parent, without requiring the parent to have been read.
 The first `where:` bullet gives the minimal background even if the parent had more.
 
-## 5. One simple example beats three paragraphs.
+## 5. Examples are structured, never prose. One step per line, one fact per step.
 
-Where a mechanism is not obvious, add `example:` with **one** concrete case: a specific
-input and what happens to it, or a before/after. Tiny numbers, two keys not two hundred,
-real names from the code. Skip the example when the `what:` is already obvious.
+Where a mechanism is not obvious, add `example:` with **one** concrete case. It must be
+graspable at a glance, so it is a setup line, numbered steps with `→ result`, and a result
+line — or a before/after table, or a tiny diagram (see `outline-format.md`). Tiny numbers,
+two keys not two hundred, real names from the code. Skip it when `what:` is already obvious.
 
-- Good: `Transaction writes key `a`, then reads keys `a` and `b`. Before: `a` came from disk (stale). After: `a` comes from the overlay, only `b` goes to disk.`
-- Bad: an abstract description of "the general case of N keys with M overlaid".
+- Bad (a real one): `Cap 1024, four buckets of 256 then singles. Parent total 0. Bucket 4 (total 1024) fits; bucket 5 (total 1025) does not. Once bucket 4 is evicted, every retained bucket has total ≥ 1025 and the chain can never consume again.` — five facts in one breath; the reader has to re-read it to find the twist.
+- Good, the same example:
+  ```
+  setup: Cap is 1024. Four buckets of 256 have arrived (total 1024).
+  steps:
+  1. Bucket 5 arrives; total would be 1025. → rejected, over the cap.
+  2. Bucket 4 is evicted to make room. → total drops to 768.
+  3. Bucket 5 is retried; the check still uses the old total 1025. → rejected again.
+  result: Nothing can ever be consumed after one eviction. The fix checks against the parent's total.
+  ```
+- Bad: `Anvil mines blocks 41 and 42 both at timestamp 1000. Messages a, b land in 41 and c in 42; all three join bucket 9. The snapshot records block 41 and its hash, logs a warning…` — a timeline told as a paragraph.
+- Good: the same as a table with rows `block 41`, `block 42`, columns `messages`, `bucket`, `what the snapshot records`, plus one `result:` line about the rollback.
 
 ## 6. `check:` is concrete and answerable.
 
@@ -59,19 +70,30 @@ linked child). It names the risk. It is not "make sure this is correct".
 - Good: `- The two callers in `log_store.ts` still catch `KeyNotFound`; do they need updating now that missing keys return `undefined`?`
 - Bad: `- Check the logic is right.`
 
-## 7. Depth is free, width is not: ≤ 7 siblings under any node.
+## 7. Depth is free, width is not: ≤ 7 siblings under any node, and go deep when it guides.
 
 The reader can hold a menu of 7. Over that, add a level and group. A large change is
-goal → sub-problem → mechanism → building block → the code; each level a menu the reader
-can skim to decide where to zoom in. A small PR may be 4 nodes and that is fine.
+goal → sub-problem → mechanism → module → the code; each level a menu the reader can skim
+to decide where to zoom in. A small PR may be 4 nodes and that is fine, but a stack of six
+PRs is **not** two levels: expect four or five.
 
+Split a node into children whenever any of these is true:
+
+- its `what:` has more than 4 bullets, or it needs more than one `code:` snippet to explain;
+- it touches two modules with different `where:` background;
+- part of it is `high` attention and part is `low` — separate them so the reader can skip;
+- it has both a design decision ("why this shape") and an implementation ("how the loop works").
+
+- Good: `Descendant-confirmed eligibility` → `The rule` (design) → `Tracker: caches and budget` (module) → `check(): the decision` (code), `reject(): caching a no` (code), `RPC budget and timeout` (code).
 - Bad: 40 leaves, one per file. That is `git diff --stat` with extra words.
+- Bad: one `code` node holding a 200-line class with six markers. Split by responsibility.
 - Bad: a node whose `what:` describes one child's details. Move it to the child.
 
 ## 8. The `summary:` line is the child's whole point, in one plain sentence.
 
 It is what the reader sees in the parent's "zoom in" menu. From it alone they decide whether
-to descend. No file names, no "this node covers".
+to descend. No file names, no "this node covers", no backticks (titles and summaries are
+plain text; the sidebar cannot render markup).
 
 - Good: `summary: The rule that keeps stale writes from leaking into the next transaction.`
 - Bad: `summary: Changes to write_transaction.ts.`

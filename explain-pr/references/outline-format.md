@@ -13,10 +13,14 @@ Read `style.md` before writing a single bullet.
 ```markdown
 # Make getLogsByTags fast and correct under concurrent callers
 slug: pr-25254-25282
+github: aztecprotocol/aztec-packages
+head: 38e30f9c1d2e
+root: /home/santiago/Projects/aztec-packages
 ```
 
 `#` = the page title, a short noun phrase (also the artifact title). `slug:` = the work dir
-name.
+name. `github:`, `head:` and `root:` come from the gather summary and let the page turn
+every file path into a GitHub link (at the head sha) and a VS Code link (absolute path).
 
 ## Nodes
 
@@ -25,7 +29,7 @@ overview, `###` a grandchild, and so on down to `######`. Depth is free; width i
 (≤ 7 siblings, see style.md).
 
 ```markdown
-## Overlay reads {#overlay-reads} [high] (design) (pr: #25282)
+## Overlay reads {#overlay-reads} [high] (design) (area: node) (pr: #25282)
 summary: A read inside a write transaction must now see that transaction's own writes.
 ```
 
@@ -37,9 +41,17 @@ summary: A read inside a write transaction must now see that transaction's own w
 - `(kind)` — `overview`, `design` (a sub-problem or the modularisation), `module` (one
   module and what happens to it), `code` (a concrete piece of implementation), `tests`,
   `wiring` (mechanical propagation).
+- `(area: x)` — required. Which part of the system the node touches, shown as a chip in the
+  sidebar so the reader sees at a glance where each node lives. Values: `node` (TypeScript
+  node, `yarn-project/`), `l1` (Solidity, `l1-contracts/`), `circuits` (Noir,
+  `noir-projects/`), `bb` (`barretenberg/`), `docs`, `infra`, `mixed` (overview or a node
+  spanning several). Combine with `+` when a node genuinely spans two: `node+l1`.
 - `(pr: #n)` — optional, for stacks: which PR this node belongs to.
-- `summary:` — required. **One** plain sentence. Shown in the parent's "zoom in" menu, so
-  the reader decides from it whether to descend.
+- `summary:` — required. **One** plain sentence, **plain text** (no backticks, no
+  markup). Shown in the parent's "zoom in" menu, so the reader decides from it whether to
+  descend.
+- Heading text is also plain text: no backticks. Write `getMany reads the overlay first`,
+  not `` `getMany` reads… `` — the sidebar cannot render markup.
 
 ## Blocks
 
@@ -64,11 +76,13 @@ why:
 - The problem it solves, or the reason for this design over the obvious alternative.
 
 example:
-A tiny, concrete walk-through. Before/after, or one input and what happens to it.
-Code allowed:
-```ts
-const logs = await store.getLogsByTags(['a', 'b']);   // one round trip now, was two
-```
+setup: Cap is 1024. Four buckets of 256 arrive, then single messages.
+steps:
+1. Bucket 4 arrives, total becomes 1024. → fits, it is kept.
+2. Bucket 5 arrives, total would be 1025. → rejected, over the cap.
+3. Bucket 4 is evicted later. → every kept bucket still has total ≥ 1025.
+result: The chain can never consume again; the cap must be checked against the *parent*
+total, not the running one.
 
 check:
 - Concrete questions the reviewer should answer while reading this node's code.
@@ -78,8 +92,8 @@ code:
 - yarn-project/kv-store/src/lmdb-v2/read_transaction.ts @@ -20,6 +24,15 @@ | getMany with overlay
   ```diff
     async getMany(keys) {
-  +   ①const fromOverlay = this.overlay.getMany(keys);
-  +   ②const missing = keys.filter((k, i) => fromOverlay[i] === undefined);
+  +   const fromOverlay = this.overlay.getMany(keys); ①
+  +   const missing = keys.filter((k, i) => fromOverlay[i] === undefined); ②
       … 6 unchanged lines …
   -   return this.snapshot.getMany(keys);
   +   return merge(fromOverlay, await this.snapshot.getMany(missing));
@@ -93,6 +107,22 @@ files:
 - yarn-project/kv-store/src/lmdb-v2/write_transaction.ts
 ```
 
+### `example:` details
+
+An example is **never a paragraph**. Pick one of these shapes:
+
+- **Setup / steps / result** (default): `setup:` one line of starting state with tiny
+  numbers; `steps:` a numbered list, each step `what happens. → what the system does`;
+  `result:` one line saying what is different from before.
+- **Before / after table**: a markdown table with columns `| case | before | after |`.
+- **Diagram**: a ```` ```mermaid ```` fence (sequence or flow), ≤ 8 nodes, when the point is
+  an ordering or a data flow. Always pair it with a one-line `result:`.
+- **Code**: a ```` ```ts ```` (or other language) fence of ≤ 6 lines with a comment per line,
+  when the example *is* a call.
+
+Names come from the code (`bucket 4`, `slot S+1`, `block 41`), numbers stay tiny, and
+each step is one short sentence.
+
 ### `code:` details
 
 - One `- path @@hunk@@ | caption` bullet per snippet. Copy the `@@` header from the dossier
@@ -100,10 +130,17 @@ files:
 - The fenced ```` ```diff ```` block is the **trimmed** hunk: keep the lines the argument
   depends on, replace runs of unchanged lines with `… N unchanged lines …`. Aim for ≤ 25
   lines. Prefixes `+`, `-`, space (context) are kept.
-- Circled digits `①②③…` placed right after the `+`/`-`/space prefix become numbered
-  markers; the numbered list after the block explains each one. ≤ 6 markers per snippet.
+- Circled digits `①②③…` placed at the **end** of a line become numbered markers (rendered at
+  the line's right edge, with the note shown on hover); the numbered list after the block
+  explains each one. ≤ 6 markers per snippet.
 - A snippet with no diff prefixes (plain code at head) is also fine: use ```` ```ts ````
   or the right language, and the caption says `(after the change)`.
+
+### Paths
+
+Any file path in prose — in `where:` citations like `` `archiver/src/log_store.ts:40` ``, in
+`files:`, in captions — is rendered as a link to GitHub at the head sha and to VS Code.
+Write them as inline code, repo-root-relative, with an optional `:line` or `:start-end`.
 
 ### Which blocks where
 

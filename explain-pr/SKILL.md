@@ -61,7 +61,8 @@ specific claim you are about to write.
 Read `references/style.md`, then write `$WORK/outline.md` per
 `references/outline-format.md`. This is the whole deliverable; render adds nothing.
 
-**Hierarchy, top-down, as many levels as the change needs:**
+**Hierarchy, top-down, as many levels as the change needs — usually four or five for a
+stack, never just "overview plus leaves":**
 
 1. **Overview** (`{#overview}`): the goal in one plain sentence, the area of the system and
    its vocabulary, one linked bullet per child, why this design, one tiny example seen from
@@ -77,10 +78,13 @@ Read `references/style.md`, then write `$WORK/outline.md` per
 5. **Tests** and **wiring** nodes: what is covered and what is not; mechanical propagation
    summarised in one line ("11 identical call sites").
 
-Depth is free, width is not: ≤ 7 siblings under any node. A grouping node's `summary:` and
-`lede:` are the menu the reader zooms in from. Every node has a `where:` (or inherits it in
-spirit via a self-contained `lede:`) so it stands alone. Use `example:` wherever a mechanism
-is not obvious, and keep it tiny. `check:` questions are concrete and answerable.
+Depth is free, width is not: ≤ 7 siblings under any node. Split a node whenever its `what:`
+passes 4 bullets, it needs more than one snippet, it spans two modules, or it mixes `high`
+and `low` attention (`style.md` §7). A grouping node's `summary:` and `lede:` are the menu
+the reader zooms in from. Every node has a `where:` so it stands alone, and an `(area: …)`
+so the sidebar shows whether it is node, L1 contracts or circuits. Use `example:` wherever
+a mechanism is not obvious — always as setup / steps / result, a before/after table or a
+tiny diagram, never a paragraph. `check:` questions are concrete and answerable.
 
 **Verify before you write.** Every caller, workflow, invariant and consequence comes from
 the dossier, the briefs, or a look you took yourself. Anything unverified becomes a
@@ -131,5 +135,9 @@ changed. Specific-to-this-PR directions stay in `outline.md` only.
 - No paragraph longer than three sentences outside `lede:`; no bullet over two lines.
 - ≤ 7 siblings anywhere; every grouping node's `summary:` stands alone as its subtree's point.
 - Each `code:` snippet ≤ 25 lines, ≤ 6 markers, every marker explained.
+- Every `example:` is structured (steps, table or diagram); no example is a paragraph.
+- A stack or a large PR reaches at least four levels somewhere; a `code` node explains one
+  responsibility, not a whole class.
+- Titles and summaries are plain text: no backticks.
 - Every `check:` bullet is a question the reviewer can actually answer from the linked code.
 - Nothing asserted that was not verified.

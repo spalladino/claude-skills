@@ -41,7 +41,7 @@ $WORK/threads.md          # every discussion, resolution state, per-thread diff 
 $WORK/threads-resolved.md # resolved threads in full
 $WORK/linear.md           # linked Linear issues
 $WORK/notes.md            # your understanding, written once before forking
-$WORK/findings-{bugs,design,threads}.md   # written by the forks
+$WORK/findings-{bugs,design,threads}.md   # returned by the forks as text, saved by you
 $WORK/verify.md           # verdicts from the cold verifier
 $WORK/review.md           # the deliverable
 $WORK/history/            # previous review.md files, one per head
@@ -51,15 +51,16 @@ $WORK/history/            # previous review.md files, one per head
 
 ```
 Read <$SKILL_DIR>/references/gather.md and follow it exactly. You are the gather subagent.
-Repo: <absolute repo root>. PR: <n>. Work dir: <$WORK> (compute the slug per gather.md).
+Repo: <absolute repo root>. PR: <n>. Work dir: compute the slug per gather.md and return it.
 <read-only line> Exception: you manage the cache under the work dir — the worktree, the
 files gather.md names, and the worktrees gc removes.
 Pin shas, check out the worktree, write meta.json, dossier.md, threads.md and linear.md,
 run gc. Return ONLY the summary block from §7.
 ```
 
-`Agent(subagent_type: "general-purpose", model: "sonnet")`. If the summary says the dossier
-is huge, still read it all; narrow only the code you open afterwards.
+`Agent(subagent_type: "general-purpose", model: "sonnet")`. Do not run `gh` yourself, not
+even to find the repo name for the slug; gather returns the work dir. If the summary says
+the dossier is huge, still read it all; narrow only the code you open afterwards.
 
 ## Step 2 — understand (you)
 
@@ -81,8 +82,14 @@ from here on.
 ## Step 3 — fork three judgments, write the explainer meanwhile
 
 Dispatch all three in one message with `Agent(subagent_type: "fork")`. Forks inherit
-everything you have read, so the prompts are short. Each writes one file and returns one
-line.
+everything you have read, so the prompts are short. **Forks return their findings as
+text**: the harness blocks subagents from writing report files, and the findings have to
+reach you anyway. Save each reply verbatim to its `findings-*.md` the moment it arrives; the
+verifier reads the files.
+
+Skip the THREADS fork only when `threads.md` has no unresolved threads and no top-level
+review or comment that asks for something; §5 then says so in one line with the resolved
+count.
 
 ```
 You are the BUGS fork of review-pr. Using what you already understand plus the code in
@@ -91,8 +98,9 @@ checklist.md §Bugs. Trace each candidate through the code until you can state t
 input and the wrong output; drop what you cannot trace, or keep it as confidence low with
 the unverified assumption named. Say for each whether the defect is new in this PR or
 pre-existing (pre-existing ones go under "While you are here"). Write
-<$WORK>/findings-bugs.md in the §3 format of report-format.md (ids B1…, permalinks from
-meta.json). <read-only line> Return ONLY: the count by severity.
+your findings in the §3 format of report-format.md (ids B1…, permalinks from meta.json).
+<read-only line> Return the findings text and nothing else: no preamble, no restatement of
+the PR; the main agent saves it as findings-bugs.md.
 ```
 
 ```
@@ -101,8 +109,8 @@ You are the DESIGN fork of review-pr. Using what you already understand plus the
 checklist.md §Design: responsibilities, size, duplication, naming, abstractions the change
 did not need, and semantics-changing simplifications labelled TRADEOFF with what is lost
 and who hits it. Anchor each on path:line and show the simpler shape in a short sketch
-when it helps. Write <$WORK>/findings-design.md in the §4 format of report-format.md (ids
-D1…). <read-only line> Return ONLY: the count, and how many are TRADEOFF.
+when it helps. Return your findings in the §4 format of report-format.md (ids D1…) and
+nothing else; the main agent saves it as findings-design.md. <read-only line>
 ```
 
 ```
@@ -112,12 +120,13 @@ its status per checklist.md §Thread status: split the ask into obligations, che
 head wherever it lives (git grep in <$WORK/wt> when the anchor file did not change), and
 attribute to a commit only when its diff shows the change. Rows where <me> took part come
 first. Fill the Remaining column for anything not addressed. Check the resolved list for a
-thread that looks wrongly resolved. Write <$WORK>/findings-threads.md in the §5 format of
-report-format.md. <read-only line> Return ONLY: counts per status.
+thread that looks wrongly resolved. Return the §5 table and paragraphs of report-format.md
+and nothing else; the main agent saves it as findings-threads.md. <read-only line>
 ```
 
-While they run, write "At a glance" placeholders and sections 1 and 2 of `review.md`
-yourself, following `report-format.md`. Section 1 speaks to someone who has never opened
+While they run, write `$WORK/review.md` itself, not a scratch file: the header, a
+placeholder line for "At a glance", sections 1 and 2 in full, and placeholder lines for
+§3–§5 and "Not verified" that Step 7 replaces. Follow `report-format.md`. Section 1 speaks to someone who has never opened
 the module: define terms, give one before/after scenario with the same explicit input on
 both sides and real names from the code. Section 2 is the module table, the mechanism in
 order, breaking changes, tests.

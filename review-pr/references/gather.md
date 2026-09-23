@@ -140,7 +140,8 @@ original commit could not be fetched the script says so. Leave it.
 Collect issue keys and links from the PR body, title, branch name and commit subjects:
 `[A-Z][A-Z0-9]+-\d+` and `linear.app/.../issue/<KEY>`. Also take `closingIssuesReferences`
 from `pr.json`. For each key call the Linear MCP tool `get_issue` (and `list_comments` for
-its comments). Write:
+its comments), or delegate the lookup to the `linear` agent type if it is available; either
+way the result lands in this file. Write:
 
 ````markdown
 # Linear: <slug>
