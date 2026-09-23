@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Post a set of comments to a PR as ONE review, each signed as agent-written.
 
-Usage: post_review.py <owner/repo> <pr> <head_sha> <post.json> --model "<model name>" --me <login>
+Usage: post_review.py <owner/repo> <pr> <head_sha> <post.json> --me <login>
                       [--event COMMENT|APPROVE|REQUEST_CHANGES|PENDING] [--dry-run]
 
 post.json:
@@ -18,8 +18,7 @@ Behaviour:
 - Reuses the caller's existing pending review on the PR if there is one, else creates one
   pinned to <head_sha>. Every comment lands inside that review, so the author gets one
   notification and the reviewer sees one bundle.
-- Appends the signature "_Written by Claude <model> at <me>'s request._" to every comment
-  and to the review body.
+- Appends the signature "_written by claude_" to every comment and to the review body.
 - --event PENDING (the default) leaves the review open for the human to submit from the web.
   Any other event submits it.
 - --dry-run prints exactly what would be posted and touches nothing.
@@ -29,7 +28,7 @@ import json
 import subprocess
 import sys
 
-SIG = '\n\n_Written by Claude {model} at {me}\'s request._'
+SIG = '\n\n_written by claude_'
 
 
 def gql(query, **vars):
@@ -63,14 +62,13 @@ def main():
     ap.add_argument('pr', type=int)
     ap.add_argument('head')
     ap.add_argument('post_json')
-    ap.add_argument('--model', required=True, help='display name of the reviewing model, e.g. "Fable 5.1"')
-    ap.add_argument('--me', required=True, help='GitHub login of the human who asked')
+    ap.add_argument('--me', required=True, help='GitHub login of the human who asked (to find their pending review)')
     ap.add_argument('--event', default='PENDING', choices=['PENDING', 'COMMENT', 'APPROVE', 'REQUEST_CHANGES'])
     ap.add_argument('--dry-run', action='store_true')
     a = ap.parse_args()
     owner, name = a.owner_repo.split('/')
     plan = json.load(open(a.post_json))
-    sig = SIG.format(model=a.model, me=a.me)
+    sig = SIG
     comments = plan.get('comments', [])
     body = (plan.get('body') or '').rstrip()
     if not comments and not body:

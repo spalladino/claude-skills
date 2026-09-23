@@ -214,8 +214,7 @@ Follow `references/post.md`. The user picks the items and the review action (`co
 `approve`, `request changes`, `pending`); if the action is missing, ask. You write the
 points, a sonnet drafts the wording into `post.json`, you check every sentence, show the
 dry-run, and on their go run `scripts/post_review.py`, which posts everything as **one**
-review pinned to the reviewed head and signs each comment
-`_Written by Claude <model> at <me>'s request._`. `pending` leaves the review open for them
+review pinned to the reviewed head and signs each comment `_written by claude_`. `pending` leaves the review open for them
 to submit from the web.
 
 ## `gc`

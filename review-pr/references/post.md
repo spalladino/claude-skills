@@ -24,7 +24,7 @@ it is always one GitHub review, never loose comments.
 5. **Dry-run, then confirm:**
    ```bash
    python3 "$SKILL_DIR/scripts/post_review.py" <owner/repo> <n> <head> "$WORK/post.json" \
-     --model "<your model's display name>" --me <me> --event <EVENT> --dry-run
+     --me <me> --event <EVENT> --dry-run
    ```
    Show the user the dry-run output verbatim and wait for a go, unless they already said to
    post without showing. Then run it without `--dry-run`. The script pins the head sha and
@@ -32,8 +32,8 @@ it is always one GitHub review, never loose comments.
 6. **Report** the review URL, the event, and, for `pending`, that they submit or discard it
    from the Files tab.
 
-The signature `_Written by Claude <model> at <me>'s request._` is appended by the script
-to every comment and to the review body. Never add it yourself and never remove it.
+The signature `_written by claude_` is appended by the script to every comment and to the
+review body. Never add it yourself and never remove it.
 
 ## Drafter prompt
 
