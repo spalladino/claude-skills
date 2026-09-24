@@ -2,7 +2,7 @@
 name: codex
 description: Invoke the Codex CLI to get a second opinion on a plan, design, analysis, or piece of code. Use ONLY when the user explicitly asks to involve codex (e.g. "ask codex", "have codex review", "get codex's take", "check with codex"). Do not invoke proactively.
 allowed-tools:
-  - "Bash(codex exec -m gpt-5.6-terra -c model_reasoning_effort=medium --sandbox read-only --skip-git-repo-check -C *)"
+  - "Bash(codex exec -m gpt-6-sol -c model_reasoning_effort=medium --sandbox read-only --skip-git-repo-check -C *)"
   - "Bash(codex exec -m gpt-6-astra -c model_reasoning_effort=high --sandbox read-only --skip-git-repo-check -C *)"
   - "Bash(codex exec -m gpt-6-astra -c model_reasoning_effort=xhigh --sandbox read-only --skip-git-repo-check -C *)"
   - "Bash(codex exec resume *)"
@@ -34,13 +34,13 @@ Scale both the model and reasoning effort to the review's difficulty:
 
 | Review | Model | Reasoning effort | Use when |
 | --- | --- | --- | --- |
-| Routine | `gpt-5.6-terra` | `medium` | The scope and success criteria are clear, the relevant code is localized, and the review mainly needs a solid independent pass. |
+| Routine | `gpt-6-sol` | `medium` | The scope and success criteria are clear, the relevant code is localized, and the review mainly needs a solid independent pass. |
 | Substantive (default) | `gpt-6-astra` | `high` | The review involves ambiguity, cross-cutting behavior, architecture, non-obvious failure modes, or meaningful risk. Use this when unsure. |
 | Exceptional | `gpt-6-astra` | `xhigh` | The question is unusually difficult, contentious, high-stakes, or has already survived serious pushback and needs the deepest single-agent analysis. |
 
-Model names move between generations and slugs do not carry over: the top tier is now `gpt-6-astra`, and there is no `gpt-5.6-astra`. If a name is rejected, read `model =` in `~/.codex/config.toml` — it is the local source of truth for a slug that works on this account.
+Model names move between generations and slugs do not carry over: the current generation is `gpt-6-astra` (frontier), `gpt-6-sol` (workhorse), and `gpt-6-luna` (fast); there is no `gpt-6-terra`. If a name is rejected, check `~/.codex/models_cache.json` (the models Codex lists for this account) or `model =` in `~/.codex/config.toml`.
 
-Do not use `gpt-5.6-luna` for this skill. Luna is optimized for clear, repeatable, high-volume work; a critical second opinion needs more judgment. `gpt-5.6-sol` still works, but it is a previous-generation model that now sits alongside Terra rather than above it. Likewise, do not use `none`, `minimal`, or `low` reasoning effort. Do not reach for `xhigh` by default: it costs more time and usage, and `high` is the normal baseline for a substantive review. Astra also accepts `max` and `ultra`; skip `ultra`, which delegates to subagents instead of giving you one focused opinion.
+Do not use `gpt-6-luna` for this skill. Luna is optimized for clear, repeatable, high-volume work; a critical second opinion needs more judgment. Do not use the older `gpt-5.6-*` models either; the `gpt-6` generation supersedes them. Likewise, do not use `none`, `minimal`, or `low` reasoning effort. Do not reach for `xhigh` by default: it costs more time and usage, and `high` is the normal baseline for a substantive review. Astra also accepts `max` and `ultra`; skip `ultra`, which delegates to subagents instead of giving you one focused opinion.
 
 ## How to invoke codex (first turn)
 
@@ -102,7 +102,7 @@ codex exec resume "<session-uuid>" \
   >> "<codex-dir>/log.txt" 2>&1
 ```
 
-`codex exec resume` does not accept `--sandbox` or `-C`. Run it from the relevant working directory. Keep the original model and reasoning effort unless the follow-up has materially increased the difficulty; for example, escalate a routine Terra/medium review to Astra/high when the first response exposes deeper ambiguity. Reserve Astra/xhigh for the exceptional cases in the table above.
+`codex exec resume` does not accept `--sandbox` or `-C`. Run it from the relevant working directory. Keep the original model and reasoning effort unless the follow-up has materially increased the difficulty; for example, escalate a routine Sol/medium review to Astra/high when the first response exposes deeper ambiguity. Reserve Astra/xhigh for the exceptional cases in the table above.
 
 Use numbered filenames (`response-2.md`, `followup-2.md`, …) so earlier turns aren't overwritten. Resume whenever you disagree with codex, need clarification, want to point out an error in its response, or want to test whether it holds its position under pushback. Starting a new session throws away its context and often wastes a round-trip re-establishing the setup.
 
