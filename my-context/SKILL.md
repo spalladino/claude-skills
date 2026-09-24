@@ -17,8 +17,10 @@ list, not just against the first one.
 
 - **Filtering GitHub PRs**: use `gh pr list` or `gh search prs` with `--author
   <github-username>`, looping over each repo in the config's repo list.
-- **Listing Linear issues**: use `mcp__linear-server__list_issues` filtered to the
-  configured Linear user (assignee) and team.
+- **Listing Linear issues**: delegate to the `linear` agent (Agent tool,
+  `subagent_type: "linear"`) — direct Linear MCP calls are blocked outside it. Tell it
+  to list issues filtered to the configured Linear user (assignee) and team, and to
+  return identifier, title and state only.
 - **Standup-style summaries**: if asked to summarize recent activity, compose it as
   Done / In Review / Todo, leading each item with the Linear issue ID when available
   and linking Linear issues to their corresponding PRs where possible.

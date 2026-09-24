@@ -9,17 +9,17 @@ The goal: **use the Linear issue as the durable record of how we tackled it.** C
 
 This runs *alongside* the actual work, not instead of it. Whenever you're working on a Linear issue (identifier looks like `A-NNN`, `NET-42`, etc.), do the four things below.
 
-## Linear MCP toolbox — call these directly, don't search for how
+## All Linear access goes through the `linear` agent
 
-- **Find the identifier first** (`A-NNN`) if you don't already have it — derive it from the branch name (Linear embeds it, e.g. `spl/a-690-fix-x`), the user's message, or the PR description; if still unknown, search with `mcp__linear-server__list_issues` or ask. Don't guess.
-- **Read the issue** — `mcp__linear-server__get_issue` `{ id: "A-NNN" }`. Returns description, state, existing attachments, and the suggested git branch name. Do this first.
-- **Read existing discussion** — `mcp__linear-server__list_comments` `{ issueId: "A-NNN" }`. Check before posting so you don't duplicate a comment.
-- **Post / update a comment** — `mcp__linear-server__save_comment` `{ issueId: "A-NNN", body }`. Reply in a thread: `{ parentId, body }`. Edit an existing comment: `{ id, body }`.
-- **Attach a written doc** — `mcp__linear-server__save_document` `{ issue: "A-NNN", title, content }`. Capture the returned doc id; update later with `{ id, content }`.
-- **Attach a raw file** — see [Attaching a file](#attaching-a-raw-file) below.
-- **Link a URL on the issue** (PR, CI run, dashboard) — `mcp__linear-server__save_issue` `{ id: "A-NNN", links: [{ url, title }] }`. Append-only; existing links are never removed.
+Linear's MCP responses are token-heavy, so the main session never calls them directly — a `PreToolUse` hook denies it. Spawn the **`linear`** agent (Agent tool, `subagent_type: "linear"`), tell it what you need, and it returns a compact summary while the raw payloads stay in its context.
 
-> `body`/`content` is **Markdown** — pass literal newlines, not `\n` escape sequences. (When to use a doc vs. a file attachment is covered in §2.)
+- **Batch.** Give it every Linear step of the current milestone in one prompt — read the issue *and* its comments, or post the comment *and* attach the log *and* link the PR. One agent, one round trip.
+- **Ask narrowly.** "State, assignee and description of A-690" beats "tell me about A-690". Say what you want back.
+- **Find the identifier first** (`A-NNN`) — derive it from the branch name (Linear embeds it, e.g. `spl/a-690-fix-x`), the user's message, or the PR description. Only ask the agent to search when it's genuinely unknown, and don't guess.
+- **What it can do:** read an issue, read/post/edit comments, attach a markdown document, attach a raw file (hand it absolute paths plus a title and subtitle for each), append a link to the issue, set state.
+- `body`/`content` is **Markdown** — pass literal newlines, not `\n` escape sequences.
+
+The Linear-side mechanics (tool names, the attachment upload dance) live in the agent definition at `~/.claude/agents/linear.md`; you don't need them here.
 
 ---
 
@@ -34,7 +34,7 @@ Fixes A-NNN
 Linear's GitHub integration recognizes `Fixes` / `Closes` / `Resolves <identifier>` in the PR title, description, or branch name, auto-links the PR to the issue, and (workflow-dependent) typically moves it to Done on merge. Use the **issue identifier** (`A-690`), never the UUID. One `Fixes` line per issue if several apply.
 
 - The `create-pr` skill already adds this when an issue is in the conversation context — so if you used it, this is done. Just confirm the right identifier is present.
-- Fallback if the PR didn't auto-link (no integration, or the magic word was missing): attach the PR URL explicitly with `mcp__linear-server__save_issue` `{ id: "A-NNN", links: [{ url: "<pr-url>", title: "PR: <title>" }] }`.
+- Fallback if the PR didn't auto-link (no integration, or the magic word was missing): ask the `linear` agent to attach the PR URL to the issue as a link, titled `PR: <title>`.
 
 ---
 
@@ -46,49 +46,16 @@ Pick the right mechanism:
 
 | Artifact | How |
 |---|---|
-| Something **you authored in markdown** (the plan, an investigation writeup, a design note) | Linear **document** parented to the issue — `save_document { issue: "A-NNN", title, content }` |
-| A **raw file** produced by a tool or run (failed-test log, trace, screenshot, JSON, large diff) | **File attachment** via the upload flow below — keeps it verbatim |
+| Something **you authored in markdown** (the plan, an investigation writeup, a design note) | Linear **document** parented to the issue — give the `linear` agent the title and the markdown |
+| A **raw file** produced by a tool or run (failed-test log, trace, screenshot, JSON, large diff) | **File attachment** — give the `linear` agent the absolute path; it keeps the file verbatim |
 
 Don't attach noise — only artifacts that are genuinely relevant to understanding or reproducing the issue. Title each one so it's obvious what it is and why it's there (e.g. "Failed run log — flaky e2e_block_building, run 4821").
 
 ### Attaching a raw file
 
-Four steps, **one file at a time** — the signed URL from step 2 expires in **60s**, so don't prepare a file until you're ready to PUT it immediately, and never batch the prepare calls. The file isn't on the issue until step 4 succeeds.
+Hand the `linear` agent the issue identifier, the **absolute path** of each file, and a title and subtitle for each — it knows the upload flow. Ask it back for one line per file (`<filename> · attached | FAILED <error>`) and nothing else. Never read a big log into your own context just to attach it.
 
-```bash
-# 1. Get the EXACT byte size and choose a contentType. The `size` you pass in
-#    step 2 must equal the bytes you PUT, so don't edit the file in between.
-#    text/plain (.log/.txt) · text/markdown (.md) · application/json (.json)
-#    image/png (.png) · application/octet-stream (unknown/binary)
-stat -c %s /path/to/run.log        # -> <SIZE> in bytes
-```
-
-```
-# 2. Prepare the upload — returns { assetUrl, uploadRequest: { url, headers } }
-mcp__linear-server__prepare_attachment_upload
-  { issue: "A-NNN", filename: "run.log", contentType: "text/plain", size: <SIZE> }
-```
-
-```bash
-# 3. PUT the raw bytes to uploadRequest.url. Emit one -H per entry in
-#    uploadRequest.headers, verbatim (exact casing). Don't base64-encode or
-#    transform the file.
-curl -X PUT --data-binary @/path/to/run.log \
-  -H "<header-1-from-uploadRequest.headers>: <value-1>" \
-  -H "<header-2-from-uploadRequest.headers>: <value-2>" \
-  "<uploadRequest.url>"
-```
-
-```
-# 4. REQUIRED — link the uploaded asset to the issue (until this runs, nothing
-#    is attached, even though the PUT succeeded).
-mcp__linear-server__create_attachment_from_upload
-  { issue: "A-NNN", assetUrl: "<assetUrl>", title: "Failed run log", subtitle: "flaky e2e, run 4821" }
-```
-
-A **403 on the PUT** means either a header was dropped/altered *or* the 60s window lapsed (a permission prompt on the `curl` can eat it). Don't retry the dead URL — re-run step 2 for a fresh `assetUrl` + headers, discard the old ones, and PUT again right away.
-
-Ignore the deprecated `create_attachment` (base64) tool — it eats context; use the flow above.
+If the same agent is also linking a URL (§1 fallback) or setting state, hand it those in the same prompt.
 
 ---
 
@@ -100,7 +67,7 @@ For any issue that's about *figuring something out* (a bug, a regression, "why i
 - When the **fix is in place and works** → post what changed and why it resolves the issue.
 - Note the **approaches you ruled out** and why — this is often the most valuable part later, because it stops the next person from re-walking dead ends.
 
-Use `mcp__linear-server__save_comment` `{ issueId: "A-NNN", body }`. Keep comments tight; **link to the attached log/doc** rather than pasting large output inline. Template:
+Ask the `linear` agent to post the comment on `A-NNN` (pass the body verbatim). Keep comments tight; **link to the attached log/doc** rather than pasting large output inline. Template:
 
 ```markdown
 **Root cause** — <one or two sentences on the actual cause>.
@@ -122,4 +89,4 @@ Before you consider the work done on the issue, verify:
 - [ ] Central artifacts are attached (plan as a doc, failed-run logs/traces as files).
 - [ ] For investigations, a comment captures **cause / fix / ruled-out**.
 
-State changes (To Do → In Progress → Done) are usually handled by the PR integration on merge; only set state manually with `save_issue { id, state }` if the user asks or the integration isn't wired up.
+State changes (To Do → In Progress → Done) are usually handled by the PR integration on merge; only ask the `linear` agent to set state if the user asks or the integration isn't wired up.
