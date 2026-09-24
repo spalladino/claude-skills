@@ -35,7 +35,9 @@
     <div class="block why">     Why
     <div class="block example"> Example — STRUCTURED: <p class="setup">, <ol class="steps">,
                                 <p class="result">, or a before/after <table>, optionally a
-                                <pre class="mermaid"> diagram. Never a plain paragraph.
+                                <pre class="mermaid"> diagram. Never a plain paragraph. Several
+                                cases may share one block, each introduced by a <p class="case">
+                                and holding its own <table> or <ol class="steps">.
     <div class="block code">    The code — <figure> per snippet (goes to the right column)
     <div class="block diagram"> A diagram on its own (right column)
     <div class="block check">   What to check when reviewing
@@ -125,7 +127,7 @@
 
   /* ─── Layout ───────────────────────────────────────────────────── */
   .app { display: grid; grid-template-columns: var(--sidebar) 1fr; min-height: 100vh; }
-  .app.nosidebar { grid-template-columns: 0 1fr; }
+  .app.nosidebar { grid-template-columns: 1fr; }
   .app.nosidebar .sidebar { display: none; }
   .sidebar { position: sticky; top: 0; height: 100vh; overflow-y: auto; border-right: 1px solid var(--border); background: var(--surface); padding: 0.75rem 0.5rem 1rem; }
   .sidebar .brand { font-weight: 700; padding: 0.25rem 0.5rem 0.75rem; font-size: 0.95rem; }
@@ -199,8 +201,9 @@
   .block.where > h3 { color: var(--where); }
   .block.example { border-left: 4px solid var(--example); background: var(--example-bg); }
   .block.example > h3 { color: var(--example); }
-  .block.example .setup, .block.example .result { margin: 0.35rem 0; }
-  .block.example .setup strong, .block.example .result strong { color: var(--example); }
+  .block.example .setup, .block.example .result, .block.example .case { margin: 0.35rem 0; }
+  .block.example .setup strong, .block.example .result strong, .block.example .case strong { color: var(--example); }
+  .block.example table + .case, .block.example ol.steps + .case { margin-top: 0.9rem; }
   .block.example ol.steps { margin: 0.5rem 0; padding-left: 0; list-style: none; counter-reset: s; }
   .block.example ol.steps li { counter-increment: s; position: relative; padding-left: 2rem; margin: 0.35rem 0; }
   .block.example ol.steps li::before { content: counter(s); position: absolute; left: 0; top: 0.15rem; width: 1.4rem; height: 1.4rem; border-radius: 999px; background: var(--example); color: #fff; font-size: 0.75rem; font-weight: 700; display: grid; place-items: center; }

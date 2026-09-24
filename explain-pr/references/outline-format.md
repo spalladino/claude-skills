@@ -123,6 +123,30 @@ An example is **never a paragraph**. Pick one of these shapes:
 Names come from the code (`bucket 4`, `slot S+1`, `block 41`), numbers stay tiny, and
 each step is one short sentence.
 
+**One case per table or steps list.** A steps list or a timeline table tells *one* story:
+each row follows from the row above. When a mechanism has branches (honest path, reorg,
+missed slot), give each branch its own table or steps list inside the same `example:`,
+introduced by a `case:` line, and share one `result:` at the end:
+
+```
+example:
+case: Honest: block N+1 arrives on time.
+| time | on L1 | old rule | new rule |
+|---|---|---|---|
+| T+12 | slot S+1 starts | consumed | still waiting |
+| T+14 | N+1 arrives with parent N | already consumed | child seen; confirmed |
+case: Reorg: N is replaced.
+| time | on L1 | old rule | new rule |
+|---|---|---|---|
+| T+12 | slot S+1 starts | consumed | still waiting |
+| T+13 | N' replaces N | consumed an orphaned bucket | orphaned; skipped |
+result: The old rule released inside the reorg window; the new one waits for evidence.
+```
+
+A row or step that starts with "instead", "alternatively" or "in the honest case" is a
+second case leaking into the first: split it out. Independent rows that do not depend on
+each other (a `| case | before | after |` table) are fine in one table.
+
 ### `code:` details
 
 - One `- path @@hunk@@ | caption` bullet per snippet. Copy the `@@` header from the dossier

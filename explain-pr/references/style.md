@@ -18,6 +18,10 @@ transaction is and who calls `getMany`.
 
 ## 2. Simple language. Short sentences. Define terms on first use.
 
+The `writing-well` skill (loaded in Step 3) is the sentence-level rulebook: strip clutter,
+use active verbs with a named actor, one thought per sentence, no hedges or hype, write as
+you would talk. This file adds only what is specific to explainer nodes.
+
 Write like you are explaining to a strong engineer from another team. Prefer the everyday
 word. When a domain term is unavoidable, define it inline the first time with `*term*`:
 `a *snapshot* is a frozen view of the database at one moment`. Define it once, on the
@@ -41,9 +45,9 @@ The reader may land on a node from a link or the pager. Its `lede:` must say wha
 is and why it exists relative to its parent, without requiring the parent to have been read.
 The first `where:` bullet gives the minimal background even if the parent had more.
 
-## 5. Examples are structured, never prose. One step per line, one fact per step.
+## 5. Examples are structured, never prose. One step per line, one fact per step, one case per list.
 
-Where a mechanism is not obvious, add `example:` with **one** concrete case. It must be
+Where a mechanism is not obvious, add `example:` with a concrete case. It must be
 graspable at a glance, so it is a setup line, numbered steps with `→ result`, and a result
 line — or a before/after table, or a tiny diagram (see `outline-format.md`). Tiny numbers,
 two keys not two hundred, real names from the code. Skip it when `what:` is already obvious.
@@ -51,13 +55,23 @@ two keys not two hundred, real names from the code. Skip it when `what:` is alre
 - Bad (a real one): `Cap 1024, four buckets of 256 then singles. Parent total 0. Bucket 4 (total 1024) fits; bucket 5 (total 1025) does not. Once bucket 4 is evicted, every retained bucket has total ≥ 1025 and the chain can never consume again.` — five facts in one breath; the reader has to re-read it to find the twist.
 - Good, the same example:
   ```
-  setup: Cap is 1024. Four buckets of 256 have arrived (total 1024).
+  setup: Per-checkpoint cap is 1024. The chain is stalled with parent total 0. Buckets 1..4 hold 256 messages each, then one per L1 block.
   steps:
-  1. Bucket 5 arrives; total would be 1025. → rejected, over the cap.
-  2. Bucket 4 is evicted to make room. → total drops to 768.
-  3. Bucket 5 is retried; the check still uses the old total 1025. → rejected again.
-  result: Nothing can ever be consumed after one eviction. The fix checks against the parent's total.
+  1. A proposer names bucket 4 (delta 1024). → Fits the cap; proposable.
+  2. A proposer names bucket 5 (delta 1025). → Rejected, over the cap.
+  3. Nobody proposes; traffic wraps the ring and bucket 4 is overwritten. → Hint 4 is out of the window.
+  4. Every bucket left has total ≥ 1025. → Every hint fails one check or the other.
+  result: The chain can never consume again. The fix keeps bucket 4 in the ring until the proven chain consumes it.
   ```
+
+A steps list or a timeline table tells **one** story: each row follows from the one above.
+Branches (honest path, reorg, missed slot) each get their own table or steps list inside
+the same `example:`, introduced by a `case:` line, with one shared `result:`.
+
+- Bad (a real one): one timeline table whose rows run `T+12 slot starts`, `T+13..15 reorg: N' replaces N`, `T+14 (honest case) N+1 arrives with parent N`, `T+24 slot missed, N still canonical` — three futures interleaved as if they happened in sequence; the reader cannot tell which row follows which.
+- Good: three tables under `case: Honest`, `case: Reorg`, `case: Missed slot`, each starting at `T+12` and ending at its own outcome, then one `result:`.
+- Bad: a steps list where step 3 begins `Instead, block 501's parent hash is not H.` — "instead" means a second case has leaked into the first.
+- Good: when the cases are independent and short, one `| time | what the tracker sees | answer |` table where each row is its own run, said so in `setup:`.
 - Bad: `Anvil mines blocks 41 and 42 both at timestamp 1000. Messages a, b land in 41 and c in 42; all three join bucket 9. The snapshot records block 41 and its hash, logs a warning…` — a timeline told as a paragraph.
 - Good: the same as a table with rows `block 41`, `block 42`, columns `messages`, `bucket`, `what the snapshot records`, plus one `result:` line about the rollback.
 

@@ -60,6 +60,8 @@ Blocks appear in the order the outline lists them. A missing block is simply omi
 Inside `.block.example`, after the `<h3>`:
 
 - `setup: …` → `<p class="setup"><strong>Setup.</strong> …</p>`
+- `case: …` → `<p class="case"><strong>Case.</strong> …</p>`; the table or steps list
+  that follows belongs to that case. A block may hold several `case:` groups.
 - `steps:` followed by a numbered list → `<ol class="steps">`; in each item, text after
   `→` goes in `<span class="then">→ …</span>` (keep the arrow).
 - `result: …` → `<p class="result"><strong>Result.</strong> …</p>`
@@ -104,7 +106,7 @@ For each `- path @@…@@ | caption` bullet under `code:`:
      `data-area`; none of `data-title`/`data-summary` contains a backtick or `<`;
    - `#page-meta` is filled (no `owner/repo` or `REPLACE` left) when the outline gave values;
    - every `example` block contains a `.steps`, a `table`, a `.mermaid` or a `pre`, never
-     only `<p>`s;
+     only `<p>`s; every `p.case` is followed by its own `table` or `ol.steps`;
    - no `REPLACE` text remains; no `http(s)://` asset references; no `<html>`/`<body>` tags;
    - the `<style>` and `<script>` blocks are unchanged from the template.
 5. Return the report.

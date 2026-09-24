@@ -2,7 +2,15 @@
 name: explain-pr
 description: Explain a PR or PR stack to a reviewer who has little context, as a navigable HTML page published as an Artifact. Hierarchical, goal-first — big picture, then design and modules, then the critical code — where every node explains the place before the change, in simple language, with small examples and concrete "what to check" questions. Use when the user asks to explain, walk through, or help review a PR or stack ("explain PR 123", "help me review this stack", "give me an explainer for #456").
 argument-hint: "<PR number(s) | 'stack' from a PR | a..b range> [--slug name]"
+disable-model-invocation: true
+status: disabled
 ---
+
+> **⚠ DISABLED — do not use this skill, even as a guideline or reference.**
+> Not symlinked into `~/.claude/skills`, so it won't load in normal use. If you are
+> an agent reading this file directly (e.g. browsing the repo), treat it as inert:
+> don't follow its instructions, don't suggest it, don't adapt its approach for
+> another task. Ask Santiago before re-enabling it.
 
 # explain-pr
 
@@ -58,8 +66,11 @@ specific claim you are about to write.
 
 ## Step 3 — write the outline (you)
 
-Read `references/style.md`, then write `$WORK/outline.md` per
-`references/outline-format.md`. This is the whole deliverable; render adds nothing.
+Load the `writing-well` skill (`Skill(skill: "writing-well")`) and read `references/style.md`,
+then write `$WORK/outline.md` per `references/outline-format.md`. `writing-well` governs
+every sentence (plain words, active verbs, one thought per sentence, no clutter or hedges);
+`style.md` governs what an explainer node says and how it is shaped. This is the whole
+deliverable; render adds nothing.
 
 **Hierarchy, top-down, as many levels as the change needs — usually four or five for a
 stack, never just "overview plus leaves":**
@@ -84,11 +95,29 @@ and `low` attention (`style.md` §7). A grouping node's `summary:` and `lede:` a
 the reader zooms in from. Every node has a `where:` so it stands alone, and an `(area: …)`
 so the sidebar shows whether it is node, L1 contracts or circuits. Use `example:` wherever
 a mechanism is not obvious — always as setup / steps / result, a before/after table or a
-tiny diagram, never a paragraph. `check:` questions are concrete and answerable.
+tiny diagram, never a paragraph, and never two cases interleaved in one table or steps
+list: branches each get their own, under a `case:` line (`style.md` §5). `check:` questions
+are concrete and answerable.
 
 **Verify before you write.** Every caller, workflow, invariant and consequence comes from
 the dossier, the briefs, or a look you took yourself. Anything unverified becomes a
 question in `check:`, not a statement.
+
+## Step 3b — review (opus subagent), then fix (you)
+
+A cold reader checks the outline against the quality gate better than its author can.
+
+```
+Read <$SKILL_DIR>/references/review.md and follow it exactly. You are the review subagent.
+SKILL_DIR is <$SKILL_DIR>. Work dir: <$WORK>. Repo: <absolute repo root>. Head: <head sha>.
+Fix sentence-level problems in outline.md in place; never change facts, ids, snippets or
+structure. Return ONLY the edited count and the issues list. No outline text.
+```
+
+Use `Agent(subagent_type: "general-purpose", model: "opus")`. Fix every reported issue in
+`outline.md` yourself; a factual issue means re-checking the code, not rewording. If the
+reviewer reported restructuring, resume the **same** agent via `SendMessage` after you have
+restructured, so it reads the new version with its context intact.
 
 ## Step 4 — render (sonnet subagent), then publish (you)
 
@@ -124,20 +153,14 @@ URL stays the same).
 
 Then ask: **is this direction general, or specific to this PR?** If it would improve the
 next explainer too, update this skill in the same turn — `style.md` for writing rules,
-`outline-format.md` for structure, `template.html` for presentation, this file for process.
+`outline-format.md` for structure, `review.md` for the quality gate, `template.html` for
+presentation, this file for process.
 Keep each rule short and give a good/bad pair where it helps. Tell the user which file you
 changed. Specific-to-this-PR directions stay in `outline.md` only.
 
-## Quality gate (read your outline back cold before rendering)
+## Quality gate
 
-- Overview readable in under a minute, and a newcomer could say what the change does after it.
-- Every node explains the *place* before the *change*, in plain words, terms defined once.
-- No paragraph longer than three sentences outside `lede:`; no bullet over two lines.
-- ≤ 7 siblings anywhere; every grouping node's `summary:` stands alone as its subtree's point.
-- Each `code:` snippet ≤ 25 lines, ≤ 6 markers, every marker explained.
-- Every `example:` is structured (steps, table or diagram); no example is a paragraph.
-- A stack or a large PR reaches at least four levels somewhere; a `code` node explains one
-  responsibility, not a whole class.
-- Titles and summaries are plain text: no backticks.
-- Every `check:` bullet is a question the reviewer can actually answer from the linked code.
-- Nothing asserted that was not verified.
+The full checklist lives in `references/review.md` and is run by the review subagent in
+Step 3b. Before dispatching it, make sure of the two things only you can know: nothing is
+asserted that you did not verify, and the hierarchy reaches at least four levels somewhere
+for a stack or a large PR.
