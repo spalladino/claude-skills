@@ -32,8 +32,11 @@ it is always one GitHub review, never loose comments.
 6. **Report** the review URL, the event, and, for `pending`, that they submit or discard it
    from the Files tab.
 
-The signature `_written by claude_` is appended by the script to every comment and to the
-review body. Never add it yourself and never remove it.
+The signature `_Written by Claude_` is appended by the script to every comment and to a
+non-empty review body; an empty body stays empty, so no review ever reads just "Written by
+Claude". Never add it yourself and never remove it. The one exception: when the user wrote
+the review body themselves, pass `--unsigned-body`; their text goes out verbatim and unsigned,
+and the comments stay signed.
 
 ## Drafter prompt
 

@@ -18,7 +18,9 @@ Behaviour:
 - Reuses the caller's existing pending review on the PR if there is one, else creates one
   pinned to <head_sha>. Every comment lands inside that review, so the author gets one
   notification and the reviewer sees one bundle.
-- Appends the signature "_written by claude_" to every comment and to the review body.
+- Appends the signature "_Written by Claude_" to every comment and to a non-empty review body
+  (skip the body's with --unsigned-body when the user wrote it). An empty body is never
+  signed, so the review never shows a lone "Written by Claude" comment.
 - --event PENDING (the default) leaves the review open for the human to submit from the web.
   Any other event submits it.
 - --dry-run prints exactly what would be posted and touches nothing.
@@ -28,7 +30,7 @@ import json
 import subprocess
 import sys
 
-SIG = '\n\n_written by claude_'
+SIG = '\n\n_Written by Claude_'
 
 
 def gql(query, **vars):
@@ -65,6 +67,8 @@ def main():
     ap.add_argument('--me', required=True, help='GitHub login of the human who asked (to find their pending review)')
     ap.add_argument('--event', default='PENDING', choices=['PENDING', 'COMMENT', 'APPROVE', 'REQUEST_CHANGES'])
     ap.add_argument('--dry-run', action='store_true')
+    ap.add_argument('--unsigned-body', action='store_true',
+                    help='do not sign the review body (the user wrote it themselves); comments are still signed')
     a = ap.parse_args()
     owner, name = a.owner_repo.split('/')
     plan = json.load(open(a.post_json))
@@ -79,8 +83,9 @@ def main():
         if 'thread_id' not in c and not (c.get('path') and c.get('line')):
             sys.exit(f'comment needs thread_id or path+line: {c}')
         c['body'] = c['body'].rstrip() + sig
-    if body or a.event != 'PENDING':
-        body = (body or '') + sig
+    # An empty body stays empty: a review whose whole body is the signature is noise.
+    if body and not a.unsigned_body:
+        body += sig
 
     if a.dry_run:
         print(f'DRY RUN — would post to {a.owner_repo}#{a.pr} at {a.head[:7]} as ONE review, event={a.event}\n')
