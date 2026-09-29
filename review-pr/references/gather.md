@@ -30,7 +30,7 @@ mkdir -p "$WORK" && touch "$WORK/.stamp"
 OWNER_REPO=$(git -C "$REPO" remote get-url origin | sed -E 's#.*github.com[:/]([^/]+/[^/.]+)(\.git)?$#\1#')
 gh pr view <n> --repo "$OWNER_REPO" --json number,title,body,url,state,isDraft,author,baseRefName,headRefName,headRefOid,\
 headRepository,headRepositoryOwner,isCrossRepository,mergeable,reviewDecision,statusCheckRollup,\
-commits,files,labels,closingIssuesReferences > "$WORK/pr.json"
+commits,files,labels,closingIssuesReferences,reviews > "$WORK/pr.json"
 HEAD=$(jq -r .headRefOid "$WORK/pr.json")
 BASE_REF=$(jq -r .baseRefName "$WORK/pr.json")
 # refs/pull/<n>/head works for same-repo and fork PRs alike; a branch fetch does not.
@@ -48,6 +48,18 @@ are excluded. `BEHIND` goes in the dossier header.
 
 If `$WORK/review.md` exists, move it to `$WORK/history/review-<old head7>.md`, reading the
 old head from the existing `meta.json`.
+
+**Prior reviews.** Record, for the `prior:` line of your summary, whether `$ME` reviewed this
+PR before. Two sources:
+
+- GitHub: `jq --arg me "$ME" '[.reviews[] | select(.author.login == $me and .state != "PENDING")]' "$WORK/pr.json"`.
+  Take the count and the last one's `submittedAt`, `state` and `commit.oid`. Count commits
+  since with `git -C "$REPO" rev-list --count <oid>..$HEAD`; if `<oid>` is not an ancestor of
+  `$HEAD` (force-push), say `rebased since`.
+- This skill: the previous `meta.json` (its `head` and `updated_at`), read before §3
+  overwrites it, and the file you just moved into `history/`.
+
+Neither source has anything → `prior: none`.
 
 ## 2. Worktree
 
@@ -170,6 +182,7 @@ files: 14 changed (+412 −96), 2 skipped
 dossier: <lines> lines, <hunks> hunks
 threads: <U> unresolved (<K> with <me> taking part), <R> resolved, <F> force pushes, <T> top-level reviews/comments by <me>
 linear: <KEY list or none>
+prior: none | github: <N> review(s) by <me>, last <date> <STATE> at <sha7>, <K> commits since (or rebased since); review-pr: <date> at head <old7>, history/review-<old7>.md
 gc: <the gc.sh summary line>
 notes: <anything odd: huge diff, head moved during gathering, unfetchable original commits, PR already merged>
 ```

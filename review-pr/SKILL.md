@@ -228,8 +228,9 @@ merged or closed PR. The markdown per slug is kept. `gc.sh --all` empties every 
 
 Same PR again after new commits: gather moves the old `review.md` to `history/`, moves the
 worktree to the new head, and rewrites the dossier and threads. In §5, a thread that was
-`not addressed` last time and is `addressed` now names the commit. Add one line under the
-header pointing at the previous review. Thread ids are per run; the thread url is the
+`not addressed` last time and is `addressed` now names the commit. "At a glance" opens with
+the prior-review line from gather's `prior:` summary (report-format.md); it also appears when
+the user reviewed the PR on GitHub but never ran this skill on it. Thread ids are per run; the thread url is the
 stable reference.
 
 ## Feeding directions back into this skill

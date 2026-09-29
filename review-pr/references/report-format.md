@@ -13,11 +13,16 @@ permalink so the reader lands on the code in one click: head citations use
 
 <author> · <branch> → <base> · head `<head7>` · <N> files, +A −D · <state>, <review decision> ·
 CI <one line> · behind base by <N> commits · Linear: <KEY> (<state>) or none
-Reviewed <date>. Prior review of head `<old7>`: `history/review-<old7>.md` (only on a re-run)
+Reviewed <date>.
 
 ## At a glance
 
-<Five to eight lines, no more. The change in one sentence. Then bullets, only those that
+<Only when gather's `prior:` line is not `none`, open with one line: "You reviewed this
+before: <STATE> on <date> at `<sha7>`, <K> commits since. Last review-pr run: <date> at
+`<old7>` (`history/review-<old7>.md`)." Keep only the parts that exist. When there is no
+prior review, say nothing about it.
+
+Five to eight lines, no more. The change in one sentence. Then bullets, only those that
 apply: "Blockers: B1, B3" with a half-line each · "Your open asks: T1 addressed, T3 not
 addressed" · "Tradeoffs to decide: D2" · "CI red / behind base / draft" if so. This is the
 part the reader acts on; everything below is support.>
