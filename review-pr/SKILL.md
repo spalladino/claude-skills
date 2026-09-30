@@ -1,6 +1,7 @@
 ---
 name: review-pr
-description: Review a GitHub PR for a human reviewer with little context — explain what it does and why, how it does it, the bugs found by reading the code, design and simplification opportunities, and the exact status of every unresolved discussion. Read-only by default — never posts, replies, resolves or edits; when the user names findings to post, drafts them via a sonnet and posts them as one signed GitHub review. Use when the user asks to review a PR ("review PR 123", "/review-pr 123 --codex") or, after a review, to post some of its findings. Flags: --codex (second opinion), --tests [pattern] (bootstrap and run tests or benchmarks), --html (publish an artifact), --fresh (ignore the last review of this PR and start over); "gc" cleans cached worktrees.
+description: >-
+  Review a GitHub PR for a human reviewer with little context — explain what it does and why, how it does it, the bugs found by reading the code, design and simplification opportunities, and the exact status of every unresolved discussion. Read-only by default — never posts, replies, resolves or edits; when the user names findings to post, drafts them via a sonnet and posts them as one signed GitHub review. Use when the user asks to review a PR ("review PR 123", "/review-pr 123 --codex") or, after a review, to post some of its findings. Flags: --codex (second opinion), --tests [pattern] (bootstrap and run tests or benchmarks), --html (publish an artifact), --fresh (ignore the last review of this PR and start over); "gc" cleans cached worktrees.
 argument-hint: "<PR number> [--codex] [--tests [pattern]] [--html] [--fresh] | post <ids> as <comment|approve|request-changes|pending> | gc"
 disable-model-invocation: true
 ---

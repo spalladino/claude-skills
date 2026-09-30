@@ -1,6 +1,7 @@
 ---
 name: linear-issues
-description: Capture the full history of how a Linear issue was tackled — link the PR with a "Fixes A-NNN" line, attach intermediate artifacts (failed-run logs, plans, traces) to the issue, and record investigation findings (root cause, fix, ruled-out approaches) as comments. Use whenever working on a Linear issue: implementing it, debugging it, or investigating a bug.
+description: >-
+  Capture the full history of how a Linear issue was tackled — link the PR with a "Fixes A-NNN" line, attach intermediate artifacts (failed-run logs, plans, traces) to the issue, and record investigation findings (root cause, fix, ruled-out approaches) as comments. Use whenever working on a Linear issue: implementing it, debugging it, or investigating a bug.
 ---
 
 # Working with Linear issues
