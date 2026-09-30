@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+# Start an interactive Claude session named review-pr-NNN that runs /review-pr NNN [prompt...]
+set -euo pipefail
+
+usage() {
+  cat <<USAGE
+usage: claude-review-pr <PR> [MODEL] [EFFORT] [prompt...]
+
+Starts an interactive Claude session named "review-pr-<PR>" and runs
+"/review-pr <PR> [prompt...]" as its first message.
+
+  PR       pull request number
+  MODEL    optional: fable | opus | sonnet
+  EFFORT   optional: xhigh | high | med | medium | low  (med = medium)
+  prompt   everything else is passed through to /review-pr
+
+MODEL and EFFORT are only recognized right after PR (EFFORT may come
+right after PR when MODEL is omitted).
+
+examples:
+  claude-review-pr 1234
+  claude-review-pr 1234 opus high
+  claude-review-pr 1234 med focus on the p2p changes
+USAGE
+}
+
+if [[ $# -lt 1 ]]; then
+  usage >&2
+  exit 1
+fi
+
+case "$1" in
+  -h|--help) usage; exit 0 ;;
+esac
+
+pr="$1"
+shift
+
+args=(--name "review-pr-${pr}")
+
+if [[ $# -gt 0 ]]; then
+  case "$1" in
+    fable|opus|sonnet) args+=(--model "$1"); shift ;;
+  esac
+fi
+
+if [[ $# -gt 0 ]]; then
+  case "$1" in
+    xhigh|high|medium|low) args+=(--effort "$1"); shift ;;
+    med) args+=(--effort medium); shift ;;
+  esac
+fi
+
+exec claude "${args[@]}" "/review-pr ${pr}${*:+ $*}"
