@@ -1,7 +1,7 @@
 ---
 name: review-pr
-description: Review a GitHub PR for a human reviewer with little context — explain what it does and why, how it does it, the bugs found by reading the code, design and simplification opportunities, and the exact status of every unresolved discussion. Read-only by default — never posts, replies, resolves or edits; when the user names findings to post, drafts them via a sonnet and posts them as one signed GitHub review. Use when the user asks to review a PR ("review PR 123", "/review-pr 123 --codex") or, after a review, to post some of its findings. Flags: --codex (second opinion), --tests [pattern] (bootstrap and run tests or benchmarks), --html (publish an artifact); "gc" cleans cached worktrees.
-argument-hint: "<PR number> [--codex] [--tests [pattern]] [--html] | post <ids> as <comment|approve|request-changes|pending> | gc"
+description: Review a GitHub PR for a human reviewer with little context — explain what it does and why, how it does it, the bugs found by reading the code, design and simplification opportunities, and the exact status of every unresolved discussion. Read-only by default — never posts, replies, resolves or edits; when the user names findings to post, drafts them via a sonnet and posts them as one signed GitHub review. Use when the user asks to review a PR ("review PR 123", "/review-pr 123 --codex") or, after a review, to post some of its findings. Flags: --codex (second opinion), --tests [pattern] (bootstrap and run tests or benchmarks), --html (publish an artifact), --fresh (ignore the last review of this PR and start over); "gc" cleans cached worktrees.
+argument-hint: "<PR number> [--codex] [--tests [pattern]] [--html] [--fresh] | post <ids> as <comment|approve|request-changes|pending> | gc"
 disable-model-invocation: true
 ---
 
@@ -32,8 +32,8 @@ tries to refute what the forks found.
 
 `$SKILL_DIR` = the absolute directory holding this file (resolve the symlink once; subagents
 cannot guess it). `$WORK` = `${XDG_CACHE_HOME:-~/.cache}/review-pr/<slug>/`, slug
-`<owner>-<repo>-pr-<n>` lower-case, stable across runs so a re-review after a push reuses the
-worktree and keeps history.
+`<owner>-<repo>-pr-<n>` lower-case, stable across runs so a re-review reuses the worktree and
+builds on the last review (see Re-runs).
 
 ```
 $WORK/wt/                 # detached worktree at head, no deps installed (a cache; gc removes it)
@@ -46,15 +46,19 @@ $WORK/notes.md            # your understanding, written once before forking
 $WORK/findings-{bugs,design,threads}.md   # returned by the forks as text, saved by you
 $WORK/verify.md           # verdicts from the cold verifier
 $WORK/review.md           # the deliverable
+$WORK/review.done         # head sha of the last finished review, written at the end of Step 7
+$WORK/interdiff.md        # incremental re-runs: what changed since the last reviewed head
+$WORK/threads.prev.md     # same-head re-runs: threads.md as the last run left it
 $WORK/post-plan.md, post.json  # Step 9 only: what to post, and the drafted comments
-$WORK/history/            # previous review.md files, one per head
+$WORK/history/<head7>/    # an earlier run's review.md, notes.md, findings and verify.md
 ```
 
 ## Step 1 — gather (sonnet subagent)
 
 ```
 Read <$SKILL_DIR>/references/gather.md and follow it exactly. You are the gather subagent.
-Repo: <absolute repo root>. PR: <n>. Work dir: compute the slug per gather.md and return it.
+Repo: <absolute repo root>. PR: <n>. Fresh: <yes if --fresh, else no>. Work dir: compute the
+slug per gather.md and return it.
 <read-only line> Exception: you manage the cache under the work dir — the worktree, the
 files gather.md names, and the worktrees gc removes.
 Pin shas, check out the worktree, write meta.json, dossier.md, threads.md and linear.md,
@@ -64,6 +68,9 @@ run gc. Return ONLY the summary block from §7.
 `Agent(subagent_type: "general-purpose", model: "sonnet")`. Do not run `gh` yourself, not
 even to find the repo name for the slug; gather returns the work dir. If the summary says
 the dossier is huge, still read it all; narrow only the code you open afterwards.
+
+The summary's `mode:` line decides how much of Steps 2–7 runs; for `same-head` and
+`incremental` read Re-runs below before Step 2.
 
 ## Step 2 — understand (you)
 
@@ -200,7 +207,8 @@ verified findings and thread rows), your §1–§2, the verified §3–§5, opti
 "Not verified". Read it once as the reviewer would, with fifteen minutes: cut what does not
 help them decide.
 
-Your reply to the user is the path to `review.md` followed by its full content. No
+Last, write the head sha to `$WORK/review.done`; the next run builds on this review only if it
+finished. Your reply to the user is the path to `review.md` followed by its full content. No
 preamble. If the user only wants a summary, they will say so.
 
 ## Step 8 — HTML artifact (only with `--html`)
@@ -226,12 +234,43 @@ merged or closed PR. The markdown per slug is kept. `gc.sh --all` empties every 
 
 ## Re-runs
 
-Same PR again after new commits: gather moves the old `review.md` to `history/`, moves the
-worktree to the new head, and rewrites the dossier and threads. In §5, a thread that was
-`not addressed` last time and is `addressed` now names the commit. "At a glance" opens with
-the prior-review line from gather's `prior:` summary (report-format.md); it also appears when
-the user reviewed the PR on GitHub but never ran this skill on it. Thread ids are per run; the thread url is the
-stable reference.
+The user often re-reviews a PR they reviewed before. Gather's `mode:` line says how much of
+the last run to reuse. `full` runs Steps 2–7 as written; `--fresh` forces it, and gather
+falls back to it when the last run did not finish or the interdiff is too big. In every
+mode, "At a glance" opens with the prior-review line and its delta (report-format.md).
+Thread ids are per run; the thread url is the stable reference.
+
+**`same-head`.** The code has not moved, so the last review's understanding and §1–§4
+stand.
+- Step 2: read `notes.md`, `review.md` and `threads.md`. Open code only where a new thread
+  points.
+- Step 3: no BUGS or DESIGN fork. Run the THREADS fork only when gather says
+  `threads changed: yes`, and add to its prompt: "The last run's threads are in
+  <$WORK>/threads.prev.md and its §5 in <$WORK>/review.md; re-judge only the threads that
+  changed or are new, and carry the other rows over."
+- Step 4: verify only the §5 rows the fork changed.
+- Steps 5–6: only when their flag was given and the last review has no §6 or §7.
+- Step 7: edit `review.md` in place: the header (date, CI, state), "At a glance", §5.
+
+**`incremental`.** The head moved by a small interdiff. Start from the last run's
+understanding, then re-check its findings at the new head. The last review lives in
+`$WORK/history/<old7>/`.
+- Step 2: read checklist.md, report-format.md, `history/<old7>/notes.md` and `review.md`,
+  `interdiff.md`, `threads.md`, `linear.md`, and the dossier header plus the dossier sections
+  of the files the interdiff touches. Open the code around each interdiff hunk and the
+  callers of what it changes. Write `notes.md` as the old memo brought up to the new head,
+  with what changed marked.
+- Step 3: all three forks run. Add to the BUGS and DESIGN prompts: "Your prior findings are
+  §3 (BUGS) or §4 (DESIGN) of <$WORK>/history/<old7>/review.md, the verified set. For each
+  prior id, state its status at head: fixed (cite the change), still present (re-cite at
+  head), or moot (the code is gone). Then hunt for new ones in <$WORK>/interdiff.md and in the
+  code it interacts with; do not re-review code the interdiff leaves alone. Keep prior ids
+  and number new ones after the highest prior id." The THREADS fork runs as in `full`, and
+  names the commit that addressed a row that was `not addressed` last time.
+- Step 4: add to the verifier prompt that it reads `interdiff.md` too, and checks every
+  fixed and still-present claim as well as the new findings.
+- Step 7: per report-format.md: §1–§2 start from the last review's text, carried findings
+  say since when they are open, and each section ends with what got fixed.
 
 ## Feeding directions back into this skill
 

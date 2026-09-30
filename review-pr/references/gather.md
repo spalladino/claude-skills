@@ -7,7 +7,8 @@ GitHub and Linear: never post, react, resolve, label or edit anything. Do not in
 dependencies, build, or run tests. The one thing you do change on disk is the cache under
 `$WORK`: the worktree, the files listed below, and worktrees gc removes.
 
-Inputs you are given: `$SKILL_DIR`, `$REPO` (absolute repo root), the PR number, `$WORK`
+Inputs you are given: `$SKILL_DIR`, `$REPO` (absolute repo root), the PR number, `fresh`
+(yes when the user passed `--fresh`), `$WORK`
 (`${XDG_CACHE_HOME:-~/.cache}/review-pr/<slug>/`, slug = `<owner>-<repo>-pr-<n>` in lower
 case, e.g. `aztecprotocol-aztec-packages-pr-25254`).
 
@@ -18,6 +19,8 @@ $WORK/dossier.md    # PR body, commits, stat, every hunk with head line ranges
 $WORK/threads.md    # all discussions with resolution state and per-thread diffs
 $WORK/threads-resolved.md  # resolved threads in full, for the wrongly-resolved check
 $WORK/linear.md     # linked Linear issues (title, state, description, comments)
+$WORK/interdiff.md  # incremental mode only: what changed since the last reviewed head
+$WORK/threads.prev.md  # same-head mode only: threads.md as the last run left it
 $WORK/.stamp        # touched on every run; gc.sh reads its mtime
 ```
 
@@ -46,8 +49,46 @@ step sees a different tip, note it in the summary rather than mixing shas. Diff 
 **merge base**, never the base tip, so commits that landed on the base after the PR forked
 are excluded. `BEHIND` goes in the dossier header.
 
-If `$WORK/review.md` exists, move it to `$WORK/history/review-<old head7>.md`, reading the
-old head from the existing `meta.json`.
+## 1b. Mode: reuse the last run or start over
+
+The cache keeps every run's markdown, so a re-review can build on the last one. Before §3
+overwrites `meta.json`, read it for the old `head`, `base` and `updated_at`, and read
+`$WORK/review.done`, which the main agent writes when a review finishes and which holds the
+head that review covered. `PREV_HEAD` = the sha in `review.done`, `PREV_BASE` = the old
+`base`. Pick the mode:
+
+- `full`: `fresh` is yes; or `review.done` is missing or names a different head than the old
+  `meta.json` (the last run did not finish; its files stay and this run overwrites them); or
+  `review.md` or `notes.md` is missing.
+- `same-head`: `PREV_HEAD` = `$HEAD`.
+- `incremental`: the head moved and the interdiff below is small. Otherwise `full`, with the
+  reason.
+
+Interdiff, written to `$WORK/interdiff.md`:
+
+1. Make sure `PREV_HEAD` exists locally (`git cat-file -e`); if not, try
+   `git -C "$REPO" fetch -q origin "$PREV_HEAD"`. Still missing → `full (old head gone)`.
+2. `PREV_HEAD` is an ancestor of `$HEAD` and `PREV_BASE` = `$BASE`: method `direct`,
+   `git diff "$PREV_HEAD" "$HEAD"`, plus `git log --oneline "$PREV_HEAD..$HEAD"` for the new
+   commits.
+3. Otherwise (a rebase, or the base merged into the branch): method `range-diff`,
+   `git range-diff "$PREV_BASE..$PREV_HEAD" "$BASE..$HEAD"`. A plain diff would drag in the
+   base's own changes.
+4. Header: old head, new head, method, new commits, and `git diff --stat` (direct) or the
+   range-diff's commit pairing summary.
+5. Too big → `full (interdiff too big)`: the interdiff touches more than half as many lines as
+   the whole PR diff (`git diff --shortstat "$BASE" "$HEAD"`), or it passes ~1500 lines.
+
+Then archive by mode:
+
+- `same-head`: move nothing. Copy `threads.md` to `threads.prev.md` before §5 rewrites it, and
+  after §5 report `threads changed: yes|no` from `diff -q`.
+- `incremental`, or `full` after a finished run: move `review.md`, `notes.md`,
+  `findings-*.md` and `verify.md` into `$WORK/history/<PREV_HEAD7>/`, and delete
+  `review.done`.
+- Any mode but `incremental`: delete a stale `interdiff.md`.
+
+Put `"mode"` and `"prev_head"` (or null) in `meta.json`.
 
 **Prior reviews.** Record, for the `prior:` line of your summary, whether `$ME` reviewed this
 PR before. Two sources:
@@ -56,8 +97,8 @@ PR before. Two sources:
   Take the count and the last one's `submittedAt`, `state` and `commit.oid`. Count commits
   since with `git -C "$REPO" rev-list --count <oid>..$HEAD`; if `<oid>` is not an ancestor of
   `$HEAD` (force-push), say `rebased since`.
-- This skill: the previous `meta.json` (its `head` and `updated_at`), read before §3
-  overwrites it, and the file you just moved into `history/`.
+- This skill: `PREV_HEAD` and the old `updated_at` from §1b, and the `history/` folder the
+  last review now lives in (or `review.md` itself in `same-head`).
 
 Neither source has anything → `prior: none`.
 
@@ -182,7 +223,8 @@ files: 14 changed (+412 −96), 2 skipped
 dossier: <lines> lines, <hunks> hunks
 threads: <U> unresolved (<K> with <me> taking part), <R> resolved, <F> force pushes, <T> top-level reviews/comments by <me>
 linear: <KEY list or none>
-prior: none | github: <N> review(s) by <me>, last <date> <STATE> at <sha7>, <K> commits since (or rebased since); review-pr: <date> at head <old7>, history/review-<old7>.md
+prior: none | github: <N> review(s) by <me>, last <date> <STATE> at <sha7>, <K> commits since (or rebased since); review-pr: <date> at head <old7>, history/<old7>/review.md
+mode: full | full (<fallback reason>) | same-head, threads changed: yes|no | incremental from <old7>, <direct|range-diff>, <N> new commits, <files> files +A −D
 gc: <the gc.sh summary line>
 notes: <anything odd: huge diff, head moved during gathering, unfetchable original commits, PR already merged>
 ```

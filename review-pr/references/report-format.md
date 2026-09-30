@@ -19,8 +19,12 @@ Reviewed <date>.
 
 <Only when gather's `prior:` line is not `none`, open with one line: "You reviewed this
 before: <STATE> on <date> at `<sha7>`, <K> commits since. Last review-pr run: <date> at
-`<old7>` (`history/review-<old7>.md`)." Keep only the parts that exist. When there is no
+`<old7>` (`history/<old7>/review.md`)." Keep only the parts that exist. When there is no
 prior review, say nothing about it.
+
+On a re-run, follow it with the delta. `incremental`: "Since `<old7>`: B1 fixed, B2 still
+open, D1 moot; new: B4." `same-head`: "Same head as the last run: §1–§4 carried over, §5
+refreshed."
 
 Five to eight lines, no more. The change in one sentence. Then bullets, only those that
 apply: "Blockers: B1, B3" with a half-line each · "Your open asks: T1 addressed, T3 not
@@ -73,6 +77,11 @@ formats, config defaults, CLI flags, error types. "None found" if none.>
 <The failing input or state, what the code does, what it should do. Quote the two lines
 that matter. If the verifier changed your mind, say what it checked.>
 
+<On an incremental re-run, a finding carried over from the last review keeps its id and adds
+"· open since `<old7>`" to its location line; new ones number after the highest prior id.
+Close the section with "Fixed since `<old7>`: B1 (`abc1234`), …" and "Moot: …" when there are
+any. §4 follows the same rules.>
+
 **While you are here** (pre-existing, not introduced by this PR): <bullets or "nothing".>
 
 ## 4. Design and simplification
@@ -121,6 +130,9 @@ turned into questions. Keep this honest; it is the most read section after "At a
 ````
 
 Rules:
+
+- On an incremental re-run, §1 and §2 start from the last review's text; change only what the
+  interdiff changes. A reader who read the last review should find the new parts fast.
 
 - "At a glance" and §1 are for a reader who has never seen the module. §2 is for one who has,
   but it is still the shape of the solution, not a list of edits: if a table row reads like a
