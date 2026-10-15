@@ -84,12 +84,16 @@ If multiple issues are relevant, add one `Fixes` line per issue.
 Run in parallel as needed:
 
 - Push to remote with `-u` if needed
-- Create PR with `gh pr create`
+- Create PR with `gh pr create --draft`
+
+Always open the PR as a draft, even if the user does not mention it: the user reviews every PR before marking it ready. Never pass `--draft=false` or run `gh pr ready` unless the user explicitly asks.
+
+Some repos (e.g. aztec-node) skip CI on drafts unless the PR carries the `ci-draft` label. Check whether the repo defines it with `gh label list --search ci-draft --json name -q '.[] | select(.name == "ci-draft") | .name'` (the search is fuzzy, hence the exact filter), and if it prints `ci-draft`, add `--label ci-draft` so CI runs on the draft. Skip the flag otherwise: `gh pr create` fails on a label the repo does not have.
 
 Use a HEREDOC for the body:
 
 ```bash
-gh pr create --title "the pr title" --body "$(cat <<'EOF'
+gh pr create --draft --label ci-draft --title "the pr title" --body "$(cat <<'EOF'
 ## Context
 ...
 
