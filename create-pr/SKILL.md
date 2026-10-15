@@ -103,4 +103,14 @@ EOF
 )"
 ```
 
-## Step 4: Return the PR URL
+## Step 4: Drop automatic review requests on drafts
+
+GitHub should not request CODEOWNERS reviews on a PR opened as a draft; it requests them when the PR is marked ready. But requests sent before a PR became a draft (or by other automation) stay. So after creating a draft, check for pending requests:
+
+```bash
+gh pr view <number> --json reviewRequests -q '.reviewRequests[] | if .__typename == "Team" then "<owner>/" + .slug else .login end'
+```
+
+If it prints anything, remove all of them, except reviewers the user explicitly asked for, in one call: `gh pr edit <number> --remove-reviewer a,b,<owner>/team`. Mention the removed reviewers when you report back. Skip this step if the user asked for a non-draft PR.
+
+## Step 5: Return the PR URL
