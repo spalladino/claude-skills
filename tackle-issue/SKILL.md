@@ -176,6 +176,16 @@ Write `$WORK/decision.md`: the chosen fix, the scope (what is in, what is explic
 the base branch, the disclosure constraint, the test that should go red then green, and
 every decision the user made during the Q&A, in their words where it matters.
 
+**Claim the issue.** Spawn the `linear` agent (`model: "sonnet"`) to re-read the issue's
+assignee and state now, since `issue.md` may be stale, and then:
+
+- **Assigned to someone else**: change nothing on the issue, and tell the user who has it.
+- **Unassigned**: assign it to the user (Linear user from `my-context`).
+- **State is Backlog or Todo** (state type `backlog` or `unstarted`): move it to the team's
+  In Progress state. Leave any other state as it is.
+
+Have it return one line: the assignee and state before and after.
+
 ## Step 5 — implement (Opus, high effort, in a worktree)
 
 Create the worktree yourself so it starts from a fresh base, using Linear's suggested
@@ -240,8 +250,8 @@ as the working directory): draft, `ci-draft` label when the repo has it, base fr
 
 Then, per `linear-issues`, spawn the `linear` agent (`model: "sonnet"`) to post one comment
 on the issue: root cause, the fix and the PR URL, the alternatives ruled out and why. Do
-not change the issue's assignee, state or priority unless the user asked; the issue may
-belong to another team.
+not change the issue's assignee, state or priority beyond the claim in Step 4 unless the
+user asked.
 
 Report: the PR URL, the worktree path, the codex findings you dropped, the follow-ups the
 implementer noted, and whether a port to a release branch is still needed.
