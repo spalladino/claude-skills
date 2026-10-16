@@ -17,7 +17,8 @@ it is always one GitHub review, never loose comments.
    tone: <answer to a question | pushback on a reply | new finding | nit>
    ```
    For a thread reply, quote the last comment in the thread so the drafter answers it.
-   Review body: one or two sentences if the user wants one, else `none`.
+   Review body: one or two sentences if the user wants one, else `none`. A body you write
+   yourself states what you checked; it never thanks the author, which reads as condescending.
 3. **Dispatch the drafter** (below), `Agent(subagent_type: "general-purpose", model: "sonnet")`.
 4. **Read `$WORK/post.json` yourself.** You are accountable for every sentence: fix anything
    that overstates the evidence, softens the ask, or drifts from the plan.
@@ -52,6 +53,8 @@ How to write each body:
 - Address the author directly, as a colleague. One point per comment, in the order: what you
   see, why it matters, what you suggest. Two to six sentences.
 - Plain words, active verbs, no hedging ("I think maybe"), no praise padding, no "great PR".
+- Never thank the author ("Thanks!", "thanks for the fix"); from a reviewer it reads as
+  condescending.
 - Evidence inline: quote the one or two lines that matter in a fenced block with the
   language tag, or cite `path:line`. No permalinks; GitHub anchors the comment already.
 - A thread reply answers the last message in the thread; do not restate the original ask.
