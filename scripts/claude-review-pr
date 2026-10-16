@@ -6,8 +6,10 @@ usage() {
   cat <<USAGE
 usage: claude-review-pr <PR> [MODEL] [EFFORT] [prompt...]
 
-Starts an interactive Claude session named "review-pr-<PR>" and runs
-"/review-pr <PR> [prompt...]" as its first message.
+Starts an interactive Claude session named "review-pr-<PR>-<slug>" and runs
+"/review-pr <PR> [prompt...]" as its first message. The slug comes from the
+PR title in the current directory's GitHub repo; if gh cannot fetch it within
+5s, the name is just "review-pr-<PR>".
 
   PR       pull request number
   MODEL    optional: fable | opus | sonnet
@@ -36,7 +38,24 @@ esac
 pr="$1"
 shift
 
-args=(--name "review-pr-${pr}")
+name="review-pr-${pr}"
+
+# Append a slug of the PR title (feat(p2p): Drop stale peers -> drop-stale-peers).
+# Best effort: outside a GitHub repo, or if gh is slow or fails, keep the bare name.
+title="$(timeout 5 gh api "repos/{owner}/{repo}/pulls/${pr}" --jq .title 2>/dev/null)" || title=""
+title="$(sed -E 's/^\[[^]]*\][[:space:]]*//; s/^[a-z]+(\([^)]*\))?!?:[[:space:]]*//' <<< "$title")"
+slug="$(printf '%s' "${title,,}" | tr -cs 'a-z0-9' '-')"
+slug="${slug#-}"
+slug="${slug%-}"
+if [[ -n "$slug" ]]; then
+  name="${name}-${slug}"
+  if (( ${#name} > 48 )); then
+    name="${name:0:49}"
+    name="${name%-*}"
+  fi
+fi
+
+args=(--name "$name")
 
 if [[ $# -gt 0 ]]; then
   case "$1" in
