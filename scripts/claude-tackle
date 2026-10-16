@@ -6,8 +6,11 @@ usage() {
   cat <<USAGE
 usage: claude-tackle <ISSUE> [MODEL] [EFFORT] [prompt...]
 
-Starts an interactive Claude session named "tackle-<NNN>" and runs
-"/tackle-issue <ISSUE> [prompt...]" as its first message.
+Starts an interactive Claude session named "tackle-<NNN>-<slug>" and runs
+"/tackle-issue <ISSUE> [prompt...]" as its first message. The slug comes from
+the issue's suggested branch name in Linear, read with a personal API key from
+\$LINEAR_API_KEY or ~/.config/linear/api-key; without one, or if Linear does
+not answer within 3s, the name is just "tackle-<NNN>".
 
   ISSUE    Linear issue: A-2400, a-2400 or 2400 (bare numbers mean team A).
            Other teams keep their prefix in the session name (NET-42 -> tackle-net-42).
@@ -54,6 +57,39 @@ if [[ "$team" == "A" ]]; then
   name="tackle-${num}"
 else
   name="tackle-${team,,}-${num}"
+fi
+
+# Append the slug of Linear's suggested branch name (spl/a-2400-fix-x -> fix-x).
+# Best effort: without a key, or if Linear is slow or down, keep the bare name.
+linear_key() {
+  if [[ -n "${LINEAR_API_KEY:-}" ]]; then
+    printf '%s' "$LINEAR_API_KEY"
+  elif [[ -r "$HOME/.config/linear/api-key" ]]; then
+    tr -d '[:space:]' < "$HOME/.config/linear/api-key"
+  fi
+}
+
+issue_slug() {
+  local key branch
+  key="$(linear_key)"
+  [[ -n "$key" ]] || return 0
+  branch="$(curl -sf --max-time 3 https://api.linear.app/graphql \
+    -H "Authorization: $key" -H 'Content-Type: application/json' \
+    -d "{\"query\":\"query(\$id:String!){issue(id:\$id){branchName}}\",\"variables\":{\"id\":\"$issue\"}}" \
+    | jq -r '.data.issue.branchName // empty' 2>/dev/null)" || return 0
+  branch="${branch##*/}"
+  branch="${branch,,}"
+  [[ "$branch" == "${issue,,}-"* ]] || return 0
+  printf '%s' "${branch#"${issue,,}-"}"
+}
+
+slug="$(issue_slug)"
+if [[ -n "$slug" ]]; then
+  name="${name}-${slug}"
+  if (( ${#name} > 48 )); then
+    name="${name:0:49}"
+    name="${name%-*}"
+  fi
 fi
 
 args=(--name "$name")
