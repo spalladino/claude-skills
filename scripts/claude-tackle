@@ -70,17 +70,26 @@ linear_key() {
 }
 
 issue_slug() {
-  local key branch
+  local key fields title branch slug tag
   key="$(linear_key)"
   [[ -n "$key" ]] || return 0
-  branch="$(curl -sf --max-time 3 https://api.linear.app/graphql \
+  fields="$(curl -sf --max-time 3 https://api.linear.app/graphql \
     -H "Authorization: $key" -H 'Content-Type: application/json' \
-    -d "{\"query\":\"query(\$id:String!){issue(id:\$id){branchName}}\",\"variables\":{\"id\":\"$issue\"}}" \
-    | jq -r '.data.issue.branchName // empty' 2>/dev/null)" || return 0
+    -d "{\"query\":\"query(\$id:String!){issue(id:\$id){title branchName}}\",\"variables\":{\"id\":\"$issue\"}}" \
+    | jq -r '.data.issue // empty | "\(.title // "")\t\(.branchName // "")"' 2>/dev/null)" || return 0
+  IFS=$'\t' read -r title branch <<< "$fields"
   branch="${branch##*/}"
   branch="${branch,,}"
   [[ "$branch" == "${issue,,}-"* ]] || return 0
-  printf '%s' "${branch#"${issue,,}-"}"
+  slug="${branch#"${issue,,}-"}"
+  # A title tag like "[aztec-node] ..." also leads the branch slug; drop it.
+  if [[ "$title" =~ ^\[([^]]+)\] ]]; then
+    tag="$(printf '%s' "${BASH_REMATCH[1],,}" | tr -cs 'a-z0-9' '-')"
+    tag="${tag#-}"
+    tag="${tag%-}"
+    [[ -n "$tag" ]] && slug="${slug#"${tag}-"}"
+  fi
+  printf '%s' "$slug"
 }
 
 slug="$(issue_slug)"
