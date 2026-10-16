@@ -148,6 +148,12 @@ and what you could not verify.
 Then wait. The user will ask questions, push back, or pick a fix. Answer from the code and
 cite it. Update `explain.md` when an answer changes the analysis, so it stays the record.
 
+**Skipping the wait.** When the invocation already asks for the fix ("/tackle-issue A-NNN
+and fix it", "go straight to implementing"), that is the go-ahead: post the explanation and
+continue to Step 4 with your recommended fix. Stop and wait anyway when the verdict is not
+**confirmed**, when Step 1 found an overlap, or when the choice between fixes needs a
+decision only the user can make (a breaking change, a tradeoff with no clear winner).
+
 If the verdict is **not a bug** or **working as intended**, do not offer to implement. Offer
 instead: a draft reply to the reporter (the user posts it, or approves you posting it), and,
 for a security report on the node, the `update-node-threat-model` skill to record why it is
@@ -155,9 +161,9 @@ out of scope.
 
 ## Step 4 — the go-ahead
 
-The user approves a fix in their own words ("go", "do option B", "ship it"). Before
-dispatching, settle these, asking with one `AskUserQuestion` for whatever the conversation
-has not already answered:
+The user approves a fix in their own words ("go", "do option B", "ship it"), or approved it
+up front (see Skipping the wait). Before dispatching, settle these, asking with one
+`AskUserQuestion` only for what the conversation has not answered and cannot be inferred:
 
 - **Fix**: which option, with any changes from the Q&A.
 - **Base branch**: `main` unless the issue was hit on a release that needs it sooner. A
