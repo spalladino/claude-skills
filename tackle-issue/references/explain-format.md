@@ -25,9 +25,28 @@ This is the part the reader acts on.>
 
 ## 1. The problem
 
-<Under 300 words. What this part of the system is for, in words a newcomer needs, with each
-term defined the first time it appears. What the reporter saw, and under what conditions.
-Quote the reporter where their wording matters.>
+<The reader has not read the issue and will not open the code. Everything they need is
+here, in plain words, with no identifiers they must look up. Three parts, in this order:>
+
+### Background
+
+<Bullets: each fact about the system the story below depends on, one term per bullet,
+defined in a sentence. Include when and how often the component runs (what triggers it,
+its polling or batch cadence) and the stages it goes through, since bugs usually live
+between stages. Name a function only alongside a plain description of what it does.>
+
+### The trigger
+
+<What the reporter (or attacker) does, as a numbered timeline of concrete events. Give
+every actor and artifact a short name the first time it appears (e.g. "CP2-bad") and use
+that name throughout. Never use a term like "re-post" or "the batch" before defining it.>
+
+### What goes wrong
+
+<A numbered walk through what the system does with that input, step by step, in plain
+words: what it checks, what answer it gets, why that answer is wrong. End with the
+visible outcome and why nothing recovers. Then who is NOT affected and why, if that
+bounds the bug. No path:line here; code references go in §2.>
 
 **Before / after.** <One concrete scenario with the same explicit input or state on both
 sides: what happens today, and what should happen. A two-column table or two short fenced
@@ -38,11 +57,12 @@ different places.>
 
 ## 2. Root cause
 
-<The mechanism, in execution order, from the trigger to the visible failure. A numbered
-list of three to seven steps, each with its path:line. Quote the two or three lines that
-matter in fenced blocks. Say when the bug was introduced if git blame shows it cleanly
-(commit and PR), and whether the reporter's diagnosis matches yours. If it does not, say
-where it goes wrong.>
+<Two or three plain sentences: the flaw in design terms (which stage assumes what, and
+why that assumption fails), understandable from §1 alone. Whether the reporter's diagnosis
+matches yours, and where it goes wrong if not. Then a "Where this lives in the code, for
+reference" list: one bullet per §1 step that maps it to path:line, each bullet saying in
+words what that code does. Say when the bug was introduced if git blame shows it cleanly
+(commit and PR).>
 
 ## 3. Severity
 
@@ -96,8 +116,11 @@ that would settle it.>
 
 Rules:
 
-- "At a glance" and §1 are for a reader who has never seen the module. Define terms; do not
-  lean on the reporter's shorthand.
+- "At a glance" and §1 are for a reader who has never seen the module, has not read the
+  issue, and will not open the code. Define terms; do not lean on the reporter's shorthand
+  or on function names. Test: could the reader explain the bug to a colleague from §1
+  alone? If a step only makes sense after reading the code ("a checkpoint that passes is
+  only pushed to a local array"), rewrite it as what the system does and why it matters.
 - Every fix has an id (`F1`) so the user can refer to it. The suggested fix is `F0`.
 - Before/after scenarios use the same input on both sides. A scenario that changes the
   input between the columns does not show the bug.

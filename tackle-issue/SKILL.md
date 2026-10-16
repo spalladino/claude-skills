@@ -145,6 +145,10 @@ content. It covers: a verdict up front, the problem with before/after scenarios,
 cause, the severity check, the suggested fix, the alternatives with your recommendation,
 and what you could not verify.
 
+The user has not read the issue or the code. The reply must stand on its own: never
+compress §1 into a code-level step list or drop the background and the trigger scenario to
+save space. If you shorten anything, shorten §3–§5, not §1.
+
 Then wait. The user will ask questions, push back, or pick a fix. Answer from the code and
 cite it. Update `explain.md` when an answer changes the analysis, so it stays the record.
 
