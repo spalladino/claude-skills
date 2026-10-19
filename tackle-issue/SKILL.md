@@ -1,7 +1,7 @@
 ---
 name: tackle-issue
 description: >-
-  Tackle a reported Linear issue end to end. Sonnet agents gather the issue, its comments and linked docs, Linear duplicates and related GitHub PRs; you study the code and explain the problem with before/after scenarios, weigh the suggested fix against alternatives, and challenge the reported severity. After the user approves a fix, an Opus agent implements it in a worktree, codex reviews it, and a draft PR goes up. Use when the user invokes /tackle-issue A-NNN or asks to look into, triage or fix a reported issue.
+  Tackle a reported Linear issue end to end. Sonnet agents gather the issue, its comments and linked docs, Linear duplicates and related GitHub PRs; you study the code and explain the problem with before/after scenarios, weigh the suggested fix against alternatives, and challenge the reported severity. After the user approves a fix, an Opus agent implements it in a worktree, codex reviews it, a draft PR goes up, and a Linear comment records your reading of the issue, the severity and the fix. Use when the user invokes /tackle-issue A-NNN or asks to look into, triage or fix a reported issue.
 argument-hint: "<Linear identifier, e.g. A-2400>"
 disable-model-invocation: true
 ---
@@ -38,6 +38,7 @@ $WORK/linear.md     # Linear duplicates and related issues
 $WORK/prs.md        # related, duplicate or conflicting GitHub PRs
 $WORK/explain.md    # your explanation (Step 3), the source for the implementer brief
 $WORK/decision.md   # the fix the user approved, plus every decision from the Q&A
+$WORK/comment.md    # the Linear comment posted with the PR (Step 7)
 ```
 
 ## Step 1 — gather (two Sonnet agents, in parallel)
@@ -174,7 +175,8 @@ up front (see Skipping the wait). Before dispatching, settle these, asking with 
   release fix usually lands on main first and is ported after with `port-to-branch`; say so.
 - **Disclosure**: if the issue is an undisclosed security problem, the repo is public; the
   PR title, body, commit messages, code comments and test names must describe the change
-  without spelling out the exploit. Ask the user when in doubt.
+  without spelling out the exploit. Ask the user when in doubt. The full detail goes in
+  the Linear comment instead (Step 7).
 
 Write `$WORK/decision.md`: the chosen fix, the scope (what is in, what is explicitly out),
 the base branch, the disclosure constraint, the test that should go red then green, and
@@ -252,10 +254,25 @@ Follow the `create-pr` skill from inside the worktree (run `git` and `gh` with t
 as the working directory): draft, `ci-draft` label when the repo has it, base from
 `decision.md`, `Fixes <A-NNN>` at the end of the body, and the disclosure constraint.
 
-Then, per `linear-issues`, spawn the `linear` agent (`model: "sonnet"`) to post one comment
-on the issue: root cause, the fix and the PR URL, the alternatives ruled out and why. Do
-not change the issue's assignee, state or priority beyond the claim in Step 4 unless the
-user asked.
+Then, per `linear-issues`, post one comment on the issue. Write it yourself to
+`$WORK/comment.md` from `explain.md` and `decision.md`, then spawn the `linear` agent
+(`model: "sonnet"`) to post that file verbatim. The comment has three parts:
+
+- **Interpretation**: what the issue is, as you understood it after reading the code: the
+  trigger, the root cause, and what breaks. Say where you read the report differently from
+  the reporter.
+- **Severity**: whether you agree with the reported severity. If you do not, give yours
+  and why (who can trigger it, the impact, the preconditions), citing the code. If you
+  agree, say so in one line.
+- **Fix**: the fix adopted and the PR URL, what is out of scope, and the alternatives
+  ruled out and why.
+
+The PR is public and the Linear issue is not. When the disclosure constraint kept detail
+out of the PR (the attack, the trigger, the exploit path), the comment must carry it, so
+the full reasoning lives somewhere. Never trim the comment to match the PR body.
+
+Do not change the issue's assignee, state or priority beyond the claim in Step 4 unless
+the user asked.
 
 Report: the PR URL, the worktree path, the codex findings you dropped, the follow-ups the
 implementer noted, and whether a port to a release branch is still needed.
