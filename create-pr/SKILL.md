@@ -50,6 +50,10 @@ Session tokens never expired, so revoked sessions stayed valid. Add a TTL check 
 
 Explain *why* this change exists — the problem it solves, or the bug it fixes. Look at the first messages of the conversation or the start of the plan for clues. 1-3 sentences.
 
+## Example
+
+Only for a bugfix. One concrete situation that triggers the bug, with what happens before the fix and after it. See "Bugfix example" below.
+
 ## Approach
 
 Explain *how* it was done at a high level — concepts and subsystems, not individual files. A few sentences, or up to ~5 bullets if there are distinct aspects.
@@ -60,6 +64,35 @@ Only if there are **public** API changes. Describe what changed for callers. Omi
 ```
 
 Do not add a "Changes" / per-package breakdown — the diff already lists the files. Only call out specific packages inside Approach when the *where* is itself non-obvious or important.
+
+### Bugfix example
+
+When a substantial PR fixes a bug, add an `## Example` section between Context and Approach: one concrete situation that triggers the bug, walked through before and after the fix. Context says what is wrong in general; the example lets the reviewer watch it go wrong.
+
+- Use the same explicit input or state on both sides: the same slots, values, actors and ordering. An example that changes the input between the columns does not show the bug.
+- Use real names and values from the code and the issue (checkpoint numbers, slot numbers, config values, error messages), not placeholders like "some value".
+- Set the scene in one or two sentences: the starting state, and who or what is involved.
+- Show the observable result on each side, and bold the outcome that matters (e.g. "**slot 21 is lost**" vs "**H-11 lands in slot 21**").
+- For a sequence of events, use a table with one row per step and columns `| When | What happens | Before this PR | After this PR |`. Leave the before/after cells empty for setup rows that do not differ. For a single input and result, two short fenced blocks or a two-column table are enough.
+- If the fix leaves part of the bad behavior in place, show that in the "after" column too, and say where it is tracked.
+- One example. Add a second only if the bug has two faces, e.g. a trigger and a consequence that show up in different places.
+
+For a small bugfix, skip the section; one sentence of the triggering input and its result in the body is enough.
+
+Example, from a sequencer fix:
+
+```
+## Example
+
+The chain is at checkpoint 10 on L1. Mallory proposes slot 20, Honest slot 21, Next slot 22. Under pipelining, each proposer builds during the slot before its own and sends at the start of its own.
+
+| When | What happens | Before this PR | After this PR |
+|---|---|---|---|
+| Slot 20 | Honest builds checkpoint 11 (H-11) on 10 and gossips it. | | |
+| Slot 20, mid-slot | Mallory posts checkpoint 11 (M-11) with invalid attestations. Archivers reject it, but L1's pending tip is now M-11. | | |
+| Start of slot 21 | Honest runs its parent check: nothing newer than 10 is checkpointed. | The check passes, the preflight fails because L1's tip is M-11. **Slot 21 is lost.** | Honest sees M-11 is invalid and sends `invalidate(M-11)` + `propose(H-11)` in one tx. **H-11 lands in slot 21.** |
+| Slot 23 | | The chain resumes on 10. | The chain resumes on H-11. |
+```
 
 ### Issue linking
 
