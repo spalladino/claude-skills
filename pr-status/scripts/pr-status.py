@@ -9,9 +9,13 @@ Usage: pr-status.py [--json] [owner/repo ...]
 Each PR gets a verdict:
   ACT    something is on the author: conflicts, red CI, changes requested,
          unanswered review threads, no reviewer, ready to merge, parent merged
-  NUDGE  waiting on requested reviewers; the age is how long since the request
+  NUDGE  waiting on requested reviewers; the age is how long since the request.
+         Conflicts on a PR awaiting review are deferred ("later"), since the
+         review may need another rebase anyway
   WAIT   nothing to do yet: CI running, auto-merge or merge queue pending,
-         or stacked on a PR that has not merged
+         or approved but stacked on a PR that has not merged
+
+Output groups PRs by verdict, then repo, then stack (bottom of the stack first).
   DRAFT  draft PRs, with their CI and conflict state for reference
 """
 import json
@@ -26,6 +30,7 @@ MAIN_CI_CHECKS = {"ci"}
 # Bases that are not another PR's branch, besides the default branch.
 NON_STACK_BASE_PREFIXES = ("merge-train/", "backport-to-")
 
+VERDICTS = ["ACT", "NUDGE", "WAIT", "DRAFT"]
 FAILED = {"FAILURE", "TIMED_OUT", "ACTION_REQUIRED", "STARTUP_FAILURE", "ERROR"}
 IGNORED = {"SKIPPED", "NEUTRAL", "STALE"}
 
@@ -192,11 +197,15 @@ def analyze(pr, me, mine_by_head):
     queued = pr["isInMergeQueue"] or pr["autoMergeRequest"] is not None
     pending_names = {p for p, _ in pending}
 
-    act, nudge, wait = [], [], []
+    act, nudge, wait, later = [], [], [], []
     if parent[1] in ("MERGED", "CLOSED"):
         act.append(f"parent #{parent[0]} is {parent[1].lower()}: retarget to {default} and rebase")
     if conflicts:
-        act.append(f"conflicts with {base}: rebase")
+        # Rebasing before a pending review is wasted work: review changes will need another one.
+        if pending and not pr["isDraft"]:
+            later.append(f"conflicts with {base}: rebase after review")
+        else:
+            act.append(f"conflicts with {base}: rebase")
     if ci == "red":
         act.append(f"CI red: {ci_detail}")
     elif ci == "cancelled":
@@ -229,8 +238,6 @@ def analyze(pr, me, mine_by_head):
         wait.append(f"CI running: {ci_detail}")
     if queued:
         wait.append("in merge queue" if pr["isInMergeQueue"] else "auto-merge enabled")
-    if stacked and parent[1] == "OPEN" and not any("merges after parent" in w for w in wait):
-        wait.append(f"stacked on #{parent[0]}")
 
     if pr["isDraft"]:
         verdict = "DRAFT"
@@ -272,40 +279,77 @@ def analyze(pr, me, mine_by_head):
         "act": act,
         "nudge": nudge,
         "wait": wait,
+        "later": later,
         "last_commit_age": age(last_commit),
         "updated_age": age(pr["updatedAt"]),
     }
 
 
+def assign_stacks(rows):
+    """Set each row's stack root (the lowest of the user's open PRs in its chain) and depth."""
+    by_key = {(r["repo"], r["number"]): r for r in rows}
+    for r in rows:
+        node, depth = r, 0
+        while node["stacked_on"] and (node["repo"], node["stacked_on"]) in by_key:
+            node, depth = by_key[(node["repo"], node["stacked_on"])], depth + 1
+        r["stack_root"], r["stack_depth"] = node["number"], depth
+    stacks = {}
+    for r in rows:
+        stacks.setdefault((r["repo"], r["stack_root"]), []).append(r)
+    for members in stacks.values():
+        members.sort(key=lambda m: (m["stack_depth"], m["number"]))
+        chain = [m["number"] for m in members] if len(members) > 1 else []
+        for m in members:
+            m["stack"] = chain
+
+
+def render_pr(r, indent):
+    pad = " " * indent
+    out = [f"{pad}- **#{r['number']}** {r['title']}  \n{pad}  {r['url']}"]
+    facts = [f"CI {r['ci']}" + (f" ({r['ci_detail']})" if r["ci_detail"] else "")]
+    if r["conflicts"]:
+        facts.append("CONFLICTS")
+    elif r["merge_state"] == "UNKNOWN":
+        facts.append("conflicts unknown")
+    elif r["merge_state"] == "BEHIND":
+        facts.append("behind base")
+    if r["stacked_on"]:
+        facts.append(f"stacked on #{r['stacked_on']} ({r['parent_state'].lower()})")
+    elif r["base"] not in ("main", "next", "master"):
+        facts.append(f"base {r['base']}")
+    facts.append(r["reviews"])
+    facts.append(f"last commit {r['last_commit_age']} ago")
+    out.append(f"{pad}  " + " · ".join(facts))
+    for label in ("act", "wait", "later"):
+        for i in r[label]:
+            out.append(f"{pad}  - {label}: {i}")
+    return out
+
+
 def render(rows):
-    order = ["ACT", "NUDGE", "WAIT", "DRAFT"]
+    """Group by verdict, then repo, then stack (bottom of the stack first)."""
     out = []
-    for v in order:
+    for v in VERDICTS:
         group = [r for r in rows if r["verdict"] == v]
         if not group:
             continue
         out.append(f"## {v} ({len(group)})\n")
-        for r in group:
-            short = r["repo"].split("/")[1]
-            out.append(f"- **{short}#{r['number']}** {r['title']}  \n  {r['url']}")
-            facts = [f"CI {r['ci']}" + (f" ({r['ci_detail']})" if r["ci_detail"] else "")]
-            if r["conflicts"]:
-                facts.append("CONFLICTS")
-            elif r["merge_state"] == "UNKNOWN":
-                facts.append("conflicts unknown")
-            elif r["merge_state"] == "BEHIND":
-                facts.append("behind base")
-            if r["stacked_on"]:
-                facts.append(f"stacked on #{r['stacked_on']} ({r['parent_state'].lower()})")
-            elif r["base"] not in ("main", "next", "master"):
-                facts.append(f"base {r['base']}")
-            facts.append(r["reviews"])
-            facts.append(f"last commit {r['last_commit_age']} ago")
-            out.append("  " + " · ".join(facts))
-            for label, items in (("act", r["act"]), ("wait", r["wait"])):
-                for i in items:
-                    out.append(f"  - {label}: {i}")
-        out.append("")
+        for repo in sorted({r["repo"] for r in group}):
+            out.append(f"### {repo}\n")
+            stacks = {}
+            for r in group:
+                if r["repo"] == repo:
+                    stacks.setdefault(r["stack_root"], []).append(r)
+            for members in sorted(stacks.values(), key=lambda ms: -max(m["number"] for m in ms)):
+                members.sort(key=lambda m: (m["stack_depth"], m["number"]))
+                chain = members[0]["stack"]
+                if chain:
+                    out.append("- Stack " + " → ".join(f"#{n}" for n in chain))
+                    for m in members:
+                        out += render_pr(m, 2)
+                else:
+                    out += render_pr(members[0], 0)
+            out.append("")
     return "\n".join(out) if out else "No open PRs."
 
 
@@ -323,8 +367,8 @@ def main():
     prs = [p for p in data["search"]["nodes"] if p]
     mine_by_head = {(p["repository"]["nameWithOwner"], p["headRefName"]): p["number"] for p in prs}
     rows = [analyze(p, me, mine_by_head) for p in prs]
-    rank = {"ACT": 0, "NUDGE": 1, "WAIT": 2, "DRAFT": 3}
-    rows.sort(key=lambda r: (rank[r["verdict"]], r["repo"], -r["number"]))
+    assign_stacks(rows)
+    rows.sort(key=lambda r: (VERDICTS.index(r["verdict"]), r["repo"], -r["stack_root"], r["stack_depth"]))
     print(json.dumps(rows, indent=2) if as_json else render(rows))
 
 
