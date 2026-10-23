@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+# Start an interactive Claude session named pr-status that runs /pr-status [args...]
+set -euo pipefail
+
+usage() {
+  cat <<USAGE
+usage: claude-status [MODEL] [EFFORT] [args...]
+
+Starts an interactive Claude session named "pr-status" and runs
+"/pr-status [args...]" as its first message.
+
+  MODEL    optional: fable | opus | sonnet
+  EFFORT   optional: xhigh | high | med | medium | low  (med = medium)
+  args     everything else is passed through to /pr-status, e.g. owner/repo
+           to override the default repos
+
+MODEL and EFFORT are only recognized as the first arguments (EFFORT may
+come first when MODEL is omitted).
+
+examples:
+  claude-status
+  claude-status sonnet low
+  claude-status AztecProtocol/barretenberg
+USAGE
+}
+
+case "${1:-}" in
+  -h|--help) usage; exit 0 ;;
+esac
+
+args=(--name pr-status)
+
+if [[ $# -gt 0 ]]; then
+  case "$1" in
+    fable|opus|sonnet) args+=(--model "$1"); shift ;;
+  esac
+fi
+
+if [[ $# -gt 0 ]]; then
+  case "$1" in
+    xhigh|high|medium|low) args+=(--effort "$1"); shift ;;
+    med) args+=(--effort medium); shift ;;
+  esac
+fi
+
+# Inside herdr, label the tab with a short name, unless it already has a name
+# that neither herdr (a bare number) nor one of these scripts gave it.
+if [[ "${HERDR_ENV:-}" == 1 && -n "${HERDR_TAB_ID:-}" ]]; then
+  herdr="${HERDR_BIN_PATH:-herdr}"
+  tab="pr-status"
+  label="$("$herdr" tab get "$HERDR_TAB_ID" 2>/dev/null | jq -r '.result.tab.label // ""' 2>/dev/null)" || label="?"
+  if [[ -z "$label" || "$label" =~ ^[0-9]+$ || "$label" =~ ^(tackle|review|pr-status) || "$label" =~ ^[a-z]+-[0-9]+$ ]]; then
+    "$herdr" tab rename "$HERDR_TAB_ID" "$tab" >/dev/null 2>&1 || true
+  fi
+fi
+
+exec claude "${args[@]}" "/pr-status${*:+ $*}"
