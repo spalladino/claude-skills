@@ -32,8 +32,8 @@ reuses review-pr's checklist, finding formats and dossier script; review-pr itse
   Linear issue.
 - **Hands off the working copy while the review runs.** Do not edit, commit, stash or check
   out anything until the orchestrator returns.
-- **The report is not yours to edit.** Show it verbatim (Step 3); your own view goes in a
-  separate, labelled note.
+- **The report is not yours to edit.** Show it verbatim (Step 3); your own view goes in
+  labelled notes beside it.
 - **Nothing outward-facing without asking.** PR body edits, issues and comments wait for the
   user's go.
 
@@ -89,13 +89,14 @@ unavailable, git failure): relay it and stop.
 ## Step 3 — present
 
 Reply with the path to `report.md`, then the report verbatim: not reworded, reordered, merged
-or trimmed. After it, only if you have something to add, one block:
+or trimmed. Where you have something to add about a finding, put it right after that
+finding's text, as its own quote block:
 
-> **Implementer's note** — from the agent that wrote this change, not from the reviewers.
+> **Implementer's note** — <at most two lines>
 
-Per finding, at most two lines: a constraint or intent the reviewers could not see, or which
-fix option you would pick and why. If you think a finding is wrong, say so with `path:line`,
-but leave it in the report.
+Only a constraint or intent the reviewers could not see, or which fix option you would pick
+and why. If you think a finding is wrong, say so with `path:line`, but leave it in the report.
+No note on a finding you have nothing to add to, and no notes grouped at the end.
 
 Then ask for a decision per finding: **fix** (which option), **won't fix** (with the reason),
 or **follow-up** (a Linear issue). Accept shorthand ("fix B1 B2 option 1, wontfix D2 too
