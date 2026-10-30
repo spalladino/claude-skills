@@ -51,13 +51,14 @@ layout is in `references/gather.md`. You touch only `$WORK/report.md` (the deliv
 Facts only, from a few git commands:
 
 1. Repo root, branch, `owner/repo` from the origin remote.
-2. **Base.** Fetch the candidates first (`git fetch -q origin <names>`). `--base` wins if
-   given (strip a leading `origin/`). Else the base of this branch's open PR
-   (`gh pr view --json baseRefName,number`). Else, among `origin/next`, `origin/main`,
-   `origin/master` and release branches (`origin/v[0-9]*`, `origin/release/*`) that exist,
-   the one whose merge-base with HEAD leaves the fewest commits (`git rev-list --count
+2. **Base.** `--base` wins if given (strip a leading `origin/`). Else the base of this
+   branch's open PR (`gh pr view --json baseRefName,number`). Else list the candidates that
+   exist on the remote (`git ls-remote --heads origin next main master 'v[0-9]*' 'release/*'`)
+   and pick the one whose merge-base with HEAD leaves the fewest commits (`git rev-list --count
    <mb>..HEAD`); same merge-base → first in that order. Ask only when different merge-bases
-   come within two commits of each other, or no candidate exists.
+   come within two commits of each other, or no candidate exists. Fetch the chosen base (and,
+   when comparing, each candidate) by name before computing merge-bases, one `git fetch -q
+   origin <name>` each: a single fetch of several names aborts on the first missing one.
 3. **Scope**: `git diff --stat <mb>` (commits plus staged and unstaged edits) and
    `git ls-files --others --exclude-standard` (untracked). Nothing at all → say so and stop.
    Ask when it looks wrong: hundreds of files, or base-branch merge commits in the range.

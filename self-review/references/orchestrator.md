@@ -67,13 +67,17 @@ The other slots, empty unless their condition holds:
 - `<incremental>`, in mode `incremental`: "This change was reviewed before, at snapshot
   <prev7>; that review is <$WORK>/history/<prev7>/report.md, and <$WORK>/interdiff.md shows what
   changed since. For each of its <B and P ids, including those tagged (codex) | D ids>, state
-  its status now: fixed (cite the change), still present (re-cite it), moot (the code is
+  its status now: fixed (cite the commit that fixed it, or "uncommitted" with path:line;
+  never a snapshot sha), still present (re-cite it), moot (the code is
   gone), or decided (listed in decisions.md as won't fix; do not re-argue it). Then hunt for
   new ones in the interdiff and the code it interacts with; do not re-review code the
   interdiff leaves alone. Keep prior ids and number new ones after the highest prior id."
   For DESIGN add: "The previous fix history is <$WORK>/history/<prev7>/fix-history.md."
-  For codex, instead: "This change was reviewed before; focus on <$WORK>/interdiff.md and the
-  code it interacts with."
+  For codex, instead: "This change was reviewed before, at snapshot <prev7>; that review is
+  <$WORK>/history/<prev7>/report.md, and <$WORK>/interdiff.md shows what changed since. For
+  each finding in it, give its status now under its id there (fixed, still present, moot, or
+  decided per decisions.md). Look for new findings only in the interdiff and the code it
+  interacts with."
 - `<focus>`, when the user gave one: "The author asks for extra attention on: <focus>. Look
   there, and elsewhere too."
 
@@ -189,8 +193,9 @@ spawns a stand-in as its own child (mode `respawn`). Codex is resumed by session
 
 ## 5. Verifier (opus)
 
-Once all reviewers are in, `Agent(subagent_type: "general-purpose", model: "opus")`; save its
-reply verbatim to `$WORK/verify.md`.
+Once all reviewers are in, save the filled prompt to `$WORK/prompt-verify.md`, then
+`Agent(subagent_type: "general-purpose", model: "opus")`; save its reply verbatim to
+`$WORK/verify.md`.
 
 ```
 You are the verifier of self-review: a cold judge of the findings three independent reviewers
@@ -230,8 +235,8 @@ fixed, still-present, moot and decided claim as well as the new findings.">
    you. Never return while a challenge is unanswered. One round per reviewer; then decide.
 4. Return exactly these sections and nothing else:
    ## Verdicts
-   One line per id: `<id>: confirmed | refuted — <why, path:line> | unverifiable — <what
-   would settle it>`, and for prior ids in incremental mode also `fixed — <change>`, `moot`
+   One line per id: `<id>: confirmed | refuted — <why, path:line> | duplicate of <id> |
+   unverifiable — <what would settle it>`, and for prior ids in incremental mode also `fixed — <change>`, `moot`
    or `decided`. Codex lines carry their match, and a codex-only finding you confirm takes the
    next free B, P or D id: `CB2 = B3: confirmed`, `CD3 = none → D4: confirmed`.
    ## Bugs
@@ -247,7 +252,8 @@ fixed, still-present, moot and decided claim as well as the new findings.">
    Each point where a reviewer held its position against your verdict, or two reviewers
    contradict: both positions in a line each, and your verdict. "None." if none.
    ## Not verified
-   Unverifiable findings, and reviewer questions about intent, as questions for the author.
+   Unverifiable findings, and reviewer questions about intent, as questions for the author,
+   numbered. "None." only when there are none.
 <read-only line> Exceptions: in respawn mode you may spawn the stand-ins, and you may write
 the codex follow-up files and run codex exec resume as above.
 ```
@@ -281,13 +287,14 @@ you: N".>
 ## Disagreements, verbatim. Drop the section when both are empty.>
 
 ## Questions for you
-<verify.md ## Not verified, verbatim. Drop the section when empty.>
+<verify.md ## Not verified, verbatim. Drop the section when it is "None.".>
 ````
 
 ## 7. Sanity check
 
 Every id in the report has a line in `## Verdicts` (a codex-only one through its `→` id), and
-every confirmed or still-present id is in the report. If not: in resume mode ask the verifier
+every confirmed or still-present id is in the report under its own heading (a `duplicate of`
+id needs none). The "Questions for you" count in At a glance equals the questions listed. If not: in resume mode ask the verifier
 once by SendMessage, save its corrected reply over `verify.md` and rebuild §6; in respawn
 mode, put one line naming the gap at the top of `report.md`. Do not fix it yourself.
 
