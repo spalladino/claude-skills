@@ -103,6 +103,16 @@ If there is a Linear or GitHub issue in the conversation context (mentioned by t
 
 If multiple issues are relevant, add one `Fixes` line per issue.
 
+### Deliberately not changed
+
+The `self-review` skill records the user's decisions on its findings in
+`${XDG_CACHE_HOME:-~/.cache}/self-review/<owner>-<repo>/<branch>/decisions.md` (lower case, `/` in
+the branch turned into `--`, e.g. `spl/foo` → `spl--foo`). If that file exists and has `won't fix`
+lines, add a `## Deliberately not changed` section before the `Fixes` lines, whatever the size of
+the change: one bullet per decision, the claim and its reason, in a sentence each. It tells
+reviewers and later agents what was considered and left out on purpose. Leave out `fix` and
+`follow-up` lines; a follow-up's issue key can go in the bullet when it explains the choice.
+
 ### Style rules
 
 - Default to fewer words. When in doubt, cut a sentence rather than add one.
@@ -136,4 +146,8 @@ EOF
 )"
 ```
 
-## Step 4: Return the PR URL
+## Step 4: Link the PR in herdr
+
+If `HERDR_ENV` is `1` and `command -v herdr-link` finds the command, run `herdr-link pr <number>` from the PR's checkout so the herdr sidebar tracks the new PR's status. The linked issue is derived from the branch name or the `Fixes` line, so there is no need to link it separately. Skip this step silently outside herdr.
+
+## Step 5: Return the PR URL

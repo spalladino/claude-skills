@@ -2,7 +2,7 @@
 name: review-pr
 description: >-
   Review a GitHub PR for a human reviewer with little context — explain what it does and why, how it does it, the bugs found by reading the code, design and simplification opportunities, and the exact status of every unresolved discussion. Read-only by default — never posts, replies, resolves or edits; when the user names findings to post, drafts them via a sonnet and posts them as one signed GitHub review. Use when the user asks to review a PR ("review PR 123", "/review-pr 123 --codex") or, after a review, to post some of its findings. Flags: --codex (second opinion), --tests [pattern] (bootstrap and run tests or benchmarks), --html (publish an artifact), --fresh (ignore the last review of this PR and start over); "gc" cleans cached worktrees.
-argument-hint: "<PR number> [--codex] [--tests [pattern]] [--html] [--fresh] | post <ids> as <comment|approve|request-changes|pending> | gc"
+argument-hint: "<PR number> [--codex] [--tests [pattern]] [--html] [--fresh] | post <ids> as <comment|approve|request changes|pending> | gc"
 disable-model-invocation: true
 ---
 
@@ -67,7 +67,7 @@ $WORK/history/<head7>/    # an earlier run's review.md, notes.md, findings, fix-
 
 ```
 Read <$SKILL_DIR>/references/gather.md and follow it exactly. You are the gather subagent.
-Repo: <absolute repo root>. PR: <n>. Fresh: <yes if --fresh, else no>. Work dir: compute the
+Skill dir: <$SKILL_DIR>. Repo: <absolute repo root>. PR: <n>. Fresh: <yes if --fresh, else no>. Work dir: compute the
 slug per gather.md and return it.
 <read-only line> Exception: you manage the cache under the work dir — the worktree, the
 files gather.md names, and the worktrees gc removes.
@@ -140,7 +140,8 @@ execution order, the modules and what changed in each, the invariants you believ
 change must keep, the places that worried you, and open questions. This is your own memo
 and the forks' starting point.
 
-Load `writing-well` (`Skill(skill: "writing-well")`) now; it governs every sentence you write
+If the `writing-well` skill is available, load it now (`Skill(skill: "writing-well")`); it is
+optional, and without it follow the plain-prose rules in `report-format.md`. It governs every sentence you write
 from here on.
 
 ## Step 3 — fork three judgments, write the explainer meanwhile
@@ -338,7 +339,8 @@ stand.
 - Steps 1b and 3b: only when `--codex` was given and the last review has no §6. The
   challenge round pastes §3–§4 of `review.md` in place of the fork findings, and the match
   map uses its ids.
-- Step 4: verify only the rows on the fork's `re-judged:` line, and the codex findings if
+- Step 4: skip it when neither the THREADS fork nor codex ran. Otherwise verify only the
+  rows on the fork's `re-judged:` line, and the codex findings if
   codex ran. Tell the verifier: "findings-bugs.md and findings-design.md are from the last
   run and already judged in verify.md; do not re-judge them. Read findings-codex.md, the
   re-judged rows of findings-threads.md, and for the B, P and D ids codex matches or

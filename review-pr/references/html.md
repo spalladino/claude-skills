@@ -12,8 +12,9 @@ rewords, reorders, drops or adds a sentence.
 3. Sanity-check `$WORK/review.html`: `<title>` set, every `##` and `###` heading of
    `review.md` present, table row counts match, no external scripts.
 4. Publish: `Artifact(file_path: "<$WORK>/review.html", icon: "review", description: "<one
-   sentence: what the PR does>")`. On a re-run for the same slug, call with the same path
-   so it redeploys to the same URL. Tell the user the URL.
+   sentence: what the PR does>")`. Save the returned URL to `$WORK/artifact.url`. On a re-run,
+   if that file exists, pass its URL as `url` so the review keeps its link, even from a new
+   session. Tell the user the URL.
 
 ## Subagent prompt
 

@@ -2,7 +2,7 @@
 
 `review.md` is the deliverable. It is read by a human with little context and about fifteen
 minutes, so it opens with what they must decide, then explains, then documents. Write it
-with the `writing-well` rules: plain words, active verbs, one thought per sentence, no
+with plain-prose rules (the `writing-well` skill, when installed): plain words, active verbs, one thought per sentence, no
 hedges. Keep code out of prose; snippets go in fenced blocks. Every `path:line` is also a
 permalink so the reader lands on the code in one click: head citations use
 `<permalink_base>`, and a citation of the code before the PR says `(base)` and uses

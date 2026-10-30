@@ -242,8 +242,10 @@ The DESIGN fork judges whether the PR patches around a model, which often needs 
 changesets: were these functions fixed before, was the same check added elsewhere. You dig
 through them so the main agent and the forks never have to.
 
-Always write the file, so a stale one from an unfinished run never survives. Skip the search
-and write `# Fix history: <slug>\n\nskipped: <reason>` when the mode is `same-head`, or when the
+In `same-head` mode leave the last run's file as it is: the code has not moved, and the
+verifier may still check a design item against it. Otherwise always write the file, so a stale
+one from an unfinished run never survives. Skip the search and write
+`# Fix history: <slug>\n\nskipped: <reason>` when the
 PR title is not a `fix` and `decoherence.md` shows no touched function with earlier fixes and
 no second way (or is unavailable). In `incremental` mode, cover only the functions and
 conditions the interdiff touches.
