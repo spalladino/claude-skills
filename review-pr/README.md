@@ -49,13 +49,11 @@ sequenceDiagram
     participant U as User
     participant M as Main
     participant G as Gather
-    participant W as Cache dir
     participant F as Forks BUGS, DESIGN, THREADS
     participant C as Codex
     participant V as Verifier
     U->>M: review this PR
-    M->>G: spawn
-    G->>W: worktree and PR context
+    M->>G: spawn to collect PR context and worktree
     G-->>M: summary
     par independent judgments
         M->>F: fork with main's understanding
@@ -68,7 +66,6 @@ sequenceDiagram
     C-->>M: reply
     M->>V: spawn cold to check all findings
     V-->>M: verdicts
-    M->>W: write review
     M-->>U: review
 ```
 

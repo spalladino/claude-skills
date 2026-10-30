@@ -34,13 +34,11 @@ sequenceDiagram
     participant M as Main
     participant O as Orchestrator
     participant G as Gather
-    participant W as Cache dir
     participant R as Reviewers BUGS, DESIGN, codex
     participant V as Verifier
     U->>M: review my change
     M->>O: spawn with facts only
-    O->>G: spawn
-    G->>W: snapshot and context
+    O->>G: spawn to snapshot the change and collect context
     G-->>O: summary
     O->>R: spawn in parallel
     R-->>O: findings
@@ -50,7 +48,6 @@ sequenceDiagram
         R-->>V: hold, amend or withdraw
     end
     V-->>O: verified findings
-    O->>W: write report
     O-->>M: report
     M-->>U: report plus implementer note
     U->>M: fix, wontfix or follow-up
