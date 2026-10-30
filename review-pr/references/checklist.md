@@ -50,6 +50,32 @@ Read by the main agent before forking, so every fork inherits it. Codex gets the
 - Config, feature flags and defaults: changed default values, env vars read in new places,
   migrations and rollout order.
 
+## Contract claims — look for
+
+Part of the BUGS fork's remit. A comment, catch or mock that misstates what a callee does
+compiles and passes its own tests, and the next change made on trust in it is silently wrong.
+Check every such claim in code the PR adds or touches and in the lines around its hunks.
+
+- **Claims in prose.** A comment, jsdoc or log message that says what a callee or dependency
+  does: throws X, returns Y, never returns null, always runs after Z.
+- **Handling for outcomes that cannot happen.** A catch branch, error-type check, `?? fallback`
+  or `=== undefined` guard for an outcome the callee cannot produce, e.g. a catch for
+  `NoCommitteeError` around `isInCommittee()`, which returns `false` when there is no committee.
+  In tests, a mock that makes a dependency throw or return what the real one never does.
+- **A changed contract with stale callers.** The PR makes a callee return a sentinel instead of
+  throwing, or changes its nullability, and a caller's comment, catch or test mock still
+  describes the old contract. Find the callers with `git grep` in the worktree.
+
+How to check: open the callee's body at head (for an interface, each implementation the call can
+reach) and follow the path this call takes to where the claimed outcome would come from. The
+callee's name, the claim itself, or a grep hit for the error type elsewhere in the callee's file
+is not evidence; the throw or return must be on that path. When the body is out of reach
+(external package), use its type and doc and mark confidence `low`. Report a contradicted claim
+as a bug that cites the claim and the callee line that contradicts it. Severity `major` when the
+PR's code or tests rely on the false claim (the branch meant for that case never runs, or the
+test passes only on the impossible mock), else `minor`. A pre-existing claim the PR's change
+relies on counts as introduced; one it merely sits next to goes under "while you are here".
+
 ## Design — look for
 
 - Functions over ~60 lines or classes over ~400 that do more than one thing. Exceptions are
@@ -61,12 +87,34 @@ Read by the main agent before forking, so every fork inherits it. Codex gets the
   whose name no longer says what they do.
 - Leaky abstractions: callers reaching into internals, types that expose implementation.
 - Naming that a newcomer would misread. Comments that describe what instead of why, or
-  that are now wrong.
+  that are now wrong (a wrong claim about a callee belongs to §Contract claims).
 - Complexity the PR could have avoided: a new abstraction for one use, a config knob no one
   asked for, a generalisation with a single instance.
 - **Semantics-changing simplifications.** When dropping a branch, a fallback or an edge case
   would make the code clearly simpler, propose it, but label it `TRADEOFF:` and state
   exactly what is lost and who would hit it. Never present one of these as a pure refactor.
+
+## Decoherence — look for
+
+Part of the DESIGN fork's remit. Decoherence is redundant or incompatible models piling up until
+changes cost mostly translation between them. Fixes cause it when they patch around the model
+instead of changing it. Evidence comes from `decoherence.md` (the PR's flow signals and the area's
+recent fixes) and `fix-history.md` (older changesets); the code decides.
+
+- **A special case instead of a model fix.** A new guard, exception, reason or fallback in a
+  function that earlier fixes already patched the same way (`fix-history.md`), or a fix that "adds
+  without replacing" in an area whose 4-week score is high. Ask what single change to the model
+  would make this case and the earlier ones unnecessary.
+- **A second way.** A new helper, type, mapper or branch beside an existing one that does the same
+  job, a fallback wrapped around an existing call, or a reason defined in another map. The rule:
+  the new path must name what it replaces and when the old one goes. Say what the old path is and
+  whether the PR should extend it, replace it, or schedule its removal.
+- **Inline translation.** A consumer turning a result type back into an older shape
+  (`x.state === 'a' ? x.value : []`) instead of handling the type or using the existing mapper.
+- **Not decoherence:** an entry the compiler forces in an exhaustive typed map (`Record<Union, X>`,
+  an exhaustive `switch`); a new feature in new code; a fix that shrinks or replaces existing code;
+  a catch or fallback for an outcome the callee cannot produce (that is §Contract claims).
+  `decoherence.md` signals are prompts to look, never findings by themselves.
 
 ## Leave alone
 

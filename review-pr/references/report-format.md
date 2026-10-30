@@ -77,12 +77,19 @@ formats, config defaults, CLI flags, error types. "None found" if none.>
 <The failing input or state, what the code does, what it should do. Quote the two lines
 that matter. If the verifier changed your mind, say what it checked.>
 
+### B2. Stale claim: <what the comment, catch or mock assumes> — `major|minor`, confidence …
+[claim path:line](permalink) · callee: [path:line](permalink) · introduced by this PR
+<A checklist.md §Contract claims item. Quote the claim and the callee line that contradicts
+it. Say what a reader who trusts the claim would get wrong and, when the PR's code or tests
+rely on it, the input that takes the wrong branch.>
+
 <On an incremental re-run, a finding carried over from the last review keeps its id and adds
 "· open since `<old7>`" to its location line; new ones number after the highest prior id.
 Close the section with "Fixed since `<old7>`: B1 (`abc1234`), …" and "Moot: …" when there are
 any. §4 follows the same rules.>
 
-**While you are here** (pre-existing, not introduced by this PR): <bullets or "nothing".>
+**While you are here** (pre-existing, not introduced by this PR): <bullets, each opening with
+its id (`P1.`) and a permalink, or "nothing".>
 
 ## 4. Design and simplification
 
@@ -94,6 +101,14 @@ simpler shape in a fenced block when it helps. Two to six lines.>
 ### D2. TRADEOFF: <proposal that changes semantics>
 [path:line](permalink)
 <Same, plus one line each: what is lost, who hits it.>
+
+### D3. Second way: <new path> beside <existing path>
+[path:line](permalink) · existing: [path:line](permalink)
+<A decoherence item (checklist.md §Decoherence), still advisory. Name the existing path the new
+one duplicates, wraps or bypasses, and what the PR should do with it: extend it, replace it, or
+say when the old one goes. One line of evidence: the earlier fixes to the same function by PR, or
+where the same check was added before. A special case instead of a model fix uses
+`### Dn. Special case: <what>` with the same shape, naming the model change that would cover it.>
 
 ## 5. Discussion status
 
@@ -114,9 +129,12 @@ Resolved: <N> threads. <One line only for one that looks wrongly resolved.>
 
 ## 6. Second opinion (codex) — only with --codex
 
-<Where codex agreed, in one line. Then each disagreement that survived one iteration, with
-both positions and your take. Findings only codex raised and you accept are merged above
-and tagged `(codex)`.>
+<Codex reviews bugs and design only, never threads. Where codex agreed, in one line. Then
+each disagreement that survived the challenge round and the verifier: a codex objection to
+a finding you kept, a fork and a codex finding that contradict each other, or a codex
+finding the verifier refuted, with both positions, the verifier's verdict and your take.
+Codex-only findings the verifier confirmed are merged above under the next free id and
+tagged `(codex)`.>
 
 ## 7. Tests and benchmarks — only with --tests
 
@@ -138,8 +156,9 @@ Rules:
   but it is still the shape of the solution, not a list of edits: if a table row reads like a
   commit message or names functions one after another, rewrite it as a responsibility or cut
   it. File-level detail is in the dossier and the diff; the reader has both.
-- Every finding in 3 and 4 has an id (`B1`, `D2`) so the user can refer to it; thread ids
-  (`T1`) match `threads.md`, top-level asks are `R1…`.
+- Every finding in 3 and 4 has an id (`B1`, `P1`, `D2`) so the user can refer to it, the same
+  id `verify.md` judges; thread ids (`T1`) match this run's `threads.md` (a row carried from
+  an earlier run takes the id of its thread url there), top-level asks are `R1…`.
 - Never soften a finding to avoid conflict with the PR author; never harden one to seem
   thorough. Confidence carries the uncertainty.
 - Sections 6 and 7 exist only when the flag was given. Do not leave empty headings.

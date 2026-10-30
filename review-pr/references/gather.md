@@ -7,18 +7,21 @@ GitHub and Linear: never post, react, resolve, label or edit anything. Do not in
 dependencies, build, or run tests. The one thing you do change on disk is the cache under
 `$WORK`: the worktree, the files listed below, and worktrees gc removes.
 
-Inputs you are given: `$SKILL_DIR`, `$REPO` (absolute repo root), the PR number, `fresh`
-(yes when the user passed `--fresh`), `$WORK`
-(`${XDG_CACHE_HOME:-~/.cache}/review-pr/<slug>/`, slug = `<owner>-<repo>-pr-<n>` in lower
-case, e.g. `aztecprotocol-aztec-packages-pr-25254`).
+Inputs you are given: `$SKILL_DIR`, `$REPO` (absolute repo root), the PR number and `fresh`
+(yes when the user passed `--fresh`). You compute `$WORK` =
+`${XDG_CACHE_HOME:-~/.cache}/review-pr/<slug>/`, slug = `<owner>-<repo>-pr-<n>` in lower
+case from the origin remote (§1), e.g. `aztecprotocol-aztec-packages-pr-25254`, and return
+both in §7.
 
 ```
-$WORK/meta.json     # slug, repo_root, owner_repo, pr, branch, base, head, state, wt, updated_at
+$WORK/meta.json     # slug, repo_root, owner_repo, pr, branch, base, head, state, mode, prev_head, wt, updated_at
 $WORK/wt/           # git worktree, detached at head. No deps installed.
 $WORK/dossier.md    # PR body, commits, stat, every hunk with head line ranges
 $WORK/threads.md    # all discussions with resolution state and per-thread diffs
 $WORK/threads-resolved.md  # resolved threads in full, for the wrongly-resolved check
 $WORK/linear.md     # linked Linear issues (title, state, description, comments)
+$WORK/decoherence.md, decoherence.json  # flow signals and area fix history (decoherence script)
+$WORK/fix-history.md  # older fixes and checks around the touched functions (§6c)
 $WORK/interdiff.md  # incremental mode only: what changed since the last reviewed head
 $WORK/threads.prev.md  # same-head mode only: threads.md as the last run left it
 $WORK/.stamp        # touched on every run; gc.sh reads its mtime
@@ -29,8 +32,9 @@ Quote every path in shell commands; `$WORK` may contain no spaces but repo paths
 ## 1. Resolve the PR and pin shas
 
 ```bash
-mkdir -p "$WORK" && touch "$WORK/.stamp"
 OWNER_REPO=$(git -C "$REPO" remote get-url origin | sed -E 's#.*github.com[:/]([^/]+/[^/.]+)(\.git)?$#\1#')
+WORK="${XDG_CACHE_HOME:-$HOME/.cache}/review-pr/$(echo "$OWNER_REPO" | tr '/' '-' | tr '[:upper:]' '[:lower:]')-pr-<n>"
+mkdir -p "$WORK" && touch "$WORK/.stamp"
 gh pr view <n> --repo "$OWNER_REPO" --json number,title,body,url,state,isDraft,author,baseRefName,headRefName,headRefOid,\
 headRepository,headRepositoryOwner,isCrossRepository,mergeable,reviewDecision,statusCheckRollup,\
 commits,files,labels,closingIssuesReferences,reviews > "$WORK/pr.json"
@@ -51,8 +55,14 @@ are excluded. `BEHIND` goes in the dossier header.
 
 ## 1b. Mode: reuse the last run or start over
 
-The cache keeps every run's markdown, so a re-review can build on the last one. Before §3
-overwrites `meta.json`, read it for the old `head`, `base` and `updated_at`, and read
+The cache keeps every run's markdown, so a re-review can build on the last one. Decide the
+mode once per run: on the head-moved retry (§5) keep the mode, `PREV_HEAD` and `PREV_BASE`
+you picked the first time and do not archive again, since the first pass already moved the
+last review into `history/`; only redo the interdiff against the new head (`incremental` may
+become `full (interdiff too big)`). The exception is `same-head`, which archived nothing:
+when the head moved it is no longer the same head, so pick the mode afresh.
+
+Before §3 overwrites `meta.json`, read it for the old `head`, `base` and `updated_at`, and read
 `$WORK/review.done`, which the main agent writes when a review finishes and which holds the
 head that review covered. `PREV_HEAD` = the sha in `review.done`, `PREV_BASE` = the old
 `base`. Pick the mode:
@@ -84,7 +94,7 @@ Then archive by mode:
 - `same-head`: move nothing. Copy `threads.md` to `threads.prev.md` before §5 rewrites it, and
   after §5 report `threads changed: yes|no` from `diff -q`.
 - `incremental`, or `full` after a finished run: move `review.md`, `notes.md`,
-  `findings-*.md` and `verify.md` into `$WORK/history/<PREV_HEAD7>/`, and delete
+  `findings-*.md`, `fix-history.md` and `verify.md` into `$WORK/history/<PREV_HEAD7>/`, and delete
   `review.done`.
 - Any mode but `incremental`: delete a stale `interdiff.md`.
 
@@ -125,6 +135,7 @@ Do **not** run `yarn`, `npm`, `cargo build`, `bootstrap.sh` or anything similar.
  "head":"<HEAD sha>","behind_base":12,"state":"OPEN","draft":false,"author":"…","me":"spalladino",
  "permalink_base":"https://github.com/AztecProtocol/aztec-packages/blob/<HEAD sha>/",
  "base_permalink_base":"https://github.com/AztecProtocol/aztec-packages/blob/<BASE sha>/",
+ "mode":"incremental","prev_head":"<PREV_HEAD sha or null>",
  "wt":"/home/…/.cache/review-pr/aztecprotocol-aztec-packages-pr-25254/wt","updated_at":"<ISO>"}
 ```
 
@@ -185,7 +196,7 @@ conversation comments and force-push events. For each unresolved thread it compu
 changed in the commented file since the comment (following renames) and excerpts the head
 code. Resolved threads go in full to `threads-resolved.md`. Open `threads.md`: if it starts
 with a **WARNING** that the head moved, the PR was pushed while you gathered; re-run from §1
-once. Check that unresolved threads have a `file changes since the comment` block; where the
+once, keeping the mode per §1b. Check that unresolved threads have a `file changes since the comment` block; where the
 original commit could not be fetched the script says so. Leave it.
 
 ## 6. Write `linear.md`
@@ -209,6 +220,50 @@ comments:
 No keys found → write `# Linear: <slug>\n\nno linked issues found`. Linear tools
 unavailable → say so in the file and in your summary.
 
+## 6b. Write `decoherence.md`
+
+Skip in `same-head` mode (no DESIGN fork runs). The decoherence script reports the PR's flow
+signals (does it add without replacing, second ways, modified functions that earlier fixes touched)
+and the 4-week fix history of the areas it touches. It reads git objects only and writes only into
+`$WORK`:
+
+```bash
+node ~/.claude/skills/decoherence/scripts/decoherence.cjs --repo "$REPO" --base "origin/$BASE_REF" \
+  --range "$BASE..$HEAD" --title "<PR title>" --out "$WORK" --name decoherence --quiet
+```
+
+It writes `$WORK/decoherence.md` and `decoherence.json`. If it fails (script missing, `typescript
+not found`, no TypeScript in the repo), write `# Decoherence: <slug>\n\nunavailable: <one-line
+reason>` to `decoherence.md` instead and go on; never retry or install anything.
+
+## 6c. Write `fix-history.md`
+
+The DESIGN fork judges whether the PR patches around a model, which often needs older
+changesets: were these functions fixed before, was the same check added elsewhere. You dig
+through them so the main agent and the forks never have to.
+
+Always write the file, so a stale one from an unfinished run never survives. Skip the search
+and write `# Fix history: <slug>\n\nskipped: <reason>` when the mode is `same-head`, or when the
+PR title is not a `fix` and `decoherence.md` shows no touched function with earlier fixes and
+no second way (or is unavailable). In `incremental` mode, cover only the functions and
+conditions the interdiff touches.
+
+Otherwise, for the functions this PR modifies and the conditions or branches it adds, search
+the base branch's history up to 12 weeks back (`git -C "$REPO" log --first-parent
+"origin/$BASE_REF" -L :<fn>:<file>`, `git log --first-parent -S'<predicate>'`, `git show`) and
+write:
+
+1. Earlier fixes to the same functions: PR, date, one line on what each changed, and whether
+   it was the same kind of special case as this PR (a guard, exception, reason, fallback).
+2. The same predicate or check added before elsewhere: where it lives at head, which PR added
+   it.
+3. For each second way `decoherence.md` lists, and each new helper, type or branch next to an
+   existing one: the existing path it parallels, and whether that path is still live at head
+   (its callers).
+
+Facts only, no recommendations. Cite sha7 and PR numbers, and `path:line` at head. At most 40
+lines under a `# Fix history: <slug>` header.
+
 ## 7. Return
 
 Only this, as plain lines. No diff, no file contents.
@@ -223,6 +278,8 @@ files: 14 changed (+412 −96), 2 skipped
 dossier: <lines> lines, <hunks> hunks
 threads: <U> unresolved (<K> with <me> taking part), <R> resolved, <F> force pushes, <T> top-level reviews/comments by <me>
 linear: <KEY list or none>
+decoherence: <N> touched functions with earlier fixes, <S> second ways, adds without replacing in <areas or none> | skipped (same-head) | unavailable: <reason>
+fix history: <F> earlier fixes, <C> repeated checks, <P> parallel paths | skipped: <reason>
 prior: none | github: <N> review(s) by <me>, last <date> <STATE> at <sha7>, <K> commits since (or rebased since); review-pr: <date> at head <old7>, history/<old7>/review.md
 mode: full | full (<fallback reason>) | same-head, threads changed: yes|no | incremental from <old7>, <direct|range-diff>, <N> new commits, <files> files +A −D
 gc: <the gc.sh summary line>

@@ -16,6 +16,8 @@ it is always one GitHub review, never loose comments.
    point: <two to five bullets in your words: the claim, the evidence (path:line), the ask>
    tone: <answer to a question | pushback on a reply | new finding | nit>
    ```
+   A `new:` target must be a head line inside one of the PR's diff hunks (the dossier's head
+   ranges), or GitHub rejects the comment; anything else goes in a thread reply or the body.
    For a thread reply, quote the last comment in the thread so the drafter answers it.
    Review body: one or two sentences if the user wants one, else `none`. A body you write
    yourself states what you checked; it never thanks the author, which reads as condescending.

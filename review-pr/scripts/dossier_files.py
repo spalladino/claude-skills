@@ -15,6 +15,10 @@ import subprocess
 import sys
 
 HUNK_RE = re.compile(r'^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@')
+# A test dir (test/, tests/, __tests__/, spec/, test-helpers/, test_utils/) or a test file name
+# (x.test.ts, x_test.go, x-spec.js, test_x.py). Not a bare substring: latest.ts and contest.rs
+# are source.
+TEST_RE = re.compile(r'(^|/)(tests?|__tests__|spec|test[-_][^/]+)/|[._-](test|spec)\.[^/]+$|(^|/)test_[^/]+$', re.I)
 
 
 def git(repo, *args):
@@ -76,8 +80,7 @@ def importers(repo, head, path):
         return 'imported by: none found'
     if len(files) > 200:
         return f'imported by: too generic a filename to grep meaningfully (matched {len(files)} files)'
-    is_test = lambda f: re.search(r'(test|spec)', f, re.I) is not None
-    non_test = [f for f in files if not is_test(f)]
+    non_test = [f for f in files if not TEST_RE.search(f)]
     tests = len(files) - len(non_test)
     line = 'imported by: ' + (', '.join(f'`{f}`' for f in non_test[:4]) or 'none')
     if len(non_test) > 4:
@@ -120,14 +123,13 @@ def main():
             skipped.append(f'- `{path}` (+{add} −{dele})')
             continue
         out.write(f'#### `{path}` — {status[0]}, +{add} −{dele}{rename}\n\n')
-        if (add == '-' and dele == '-') or 'Binary files' in git(a.repo, 'diff', '--stat=1', '-M', rng, '--', *paths) \
-                or git(a.repo, 'diff', '--numstat', '-M', rng, '--', *paths).startswith('-'):
+        if (add == '-' and dele == '-') or 'Binary files' in git(a.repo, 'diff', '--stat=1', '-M', rng, '--', *paths):
             out.write('binary file; no hunks.\n\n')
             continue
         summary = git(a.repo, 'diff', '--summary', '-M', rng, '--', *paths).strip()
         if 'mode change' in summary:
             out.write(f'`{summary.splitlines()[0].strip()}`\n\n')
-        if 'test' not in path and not path.endswith('.md'):
+        if not TEST_RE.search(path) and not path.endswith('.md'):
             out.write(importers(a.repo, a.head, path) + '\n\n')
         u0 = parse_u0(git(a.repo, 'diff', '-U0', '-M', rng, '--', *paths))
         for old_start, old_count, header, body in parse_u3(git(a.repo, 'diff', '-U3', '-M', rng, '--', *paths)):

@@ -10,19 +10,25 @@ disable-model-invocation: true
 
 **You are the reviewer. Your context is for understanding the change, not for `gh` output,
 raw diffs or markup.** Clerical work goes to Sonnet subagents; the three judgment passes run
-as forks of you, so the code is understood once and judged in parallel; a cold verifier then
-tries to refute what the forks found.
+as forks of you, so the code is understood once and judged in parallel; with `--codex`, codex
+builds its own understanding alongside, so a misreading of yours cannot hide a bug from
+everyone; a cold verifier then tries to refute what the forks and codex found.
 
 ## Ground rules
 
 - **Read-only, everywhere.** Never post a comment or review, never react, resolve, label,
   approve, merge, push, or edit Linear. Never modify the worktree or the repo. The single
-  exception is Step 9, which posts exactly the items the user named, as one review, after
+  exception is Step 8, which posts exactly the items the user named, as one review, after
   they have seen the drafts. Every subagent and codex prompt repeats the line below; keep it
   there:
   > Read-only: do not post, reply, react, resolve or edit anything on GitHub or Linear; do
   > not modify files in the worktree or repo; do not install dependencies, build, or run
-  > tests. Your only output is the file named in this prompt.
+  > tests. Your only output is what this prompt asks you to write or return.
+- **Judgments come back as text.** The harness tells subagents not to write report or
+  findings files; a file another tool consumes is fine. So gather writes the cache files
+  (`fix-history.md` among them), the render subagent `review.html` and the drafter
+  `post.json`; the forks and the verifier return text that you save verbatim; the tests
+  subagent returns its table.
 - **Nothing runs unless asked.** No install, build, test or benchmark without `--tests`.
   No codex without `--codex`. No HTML without `--html`.
 - **Cite the head.** Every claim about the code names `path:line` at the pinned head sha,
@@ -43,15 +49,18 @@ $WORK/dossier.md          # PR body, commits, stat, every hunk with head line ra
 $WORK/threads.md          # every discussion, resolution state, per-thread diff since the comment
 $WORK/threads-resolved.md # resolved threads in full
 $WORK/linear.md           # linked Linear issues
+$WORK/decoherence.md      # flow signals and 4-week area fix history (decoherence script, run by gather)
+$WORK/fix-history.md      # older fixes and checks around the touched functions, for the DESIGN fork (gather)
 $WORK/notes.md            # your understanding, written once before forking
 $WORK/findings-{bugs,design,threads}.md   # returned by the forks as text, saved by you
-$WORK/verify.md           # verdicts from the cold verifier
+$WORK/findings-codex.md   # --codex only: codex's findings and its challenge-round reply, saved by you
+$WORK/verify.md           # verdicts from the cold verifier, returned as text, saved by you
 $WORK/review.md           # the deliverable
-$WORK/review.done         # head sha of the last finished review, written at the end of Step 7
+$WORK/review.done         # head sha of the last finished review, written at the end of Step 6
 $WORK/interdiff.md        # incremental re-runs: what changed since the last reviewed head
 $WORK/threads.prev.md     # same-head re-runs: threads.md as the last run left it
-$WORK/post-plan.md, post.json  # Step 9 only: what to post, and the drafted comments
-$WORK/history/<head7>/    # an earlier run's review.md, notes.md, findings and verify.md
+$WORK/post-plan.md, post.json  # Step 8 only: what to post, and the drafted comments
+$WORK/history/<head7>/    # an earlier run's review.md, notes.md, findings, fix-history.md and verify.md
 ```
 
 ## Step 1 — gather (sonnet subagent)
@@ -62,25 +71,69 @@ Repo: <absolute repo root>. PR: <n>. Fresh: <yes if --fresh, else no>. Work dir:
 slug per gather.md and return it.
 <read-only line> Exception: you manage the cache under the work dir — the worktree, the
 files gather.md names, and the worktrees gc removes.
-Pin shas, check out the worktree, write meta.json, dossier.md, threads.md and linear.md,
-run gc. Return ONLY the summary block from §7.
+Pin shas, check out the worktree, write meta.json, dossier.md, threads.md, linear.md,
+decoherence.md and fix-history.md, run gc. Return ONLY the summary block from §7.
 ```
 
 `Agent(subagent_type: "general-purpose", model: "sonnet")`. Do not run `gh` yourself, not
 even to find the repo name for the slug; gather returns the work dir. If the summary says
 the dossier is huge, still read it all; narrow only the code you open afterwards.
 
-The summary's `mode:` line decides how much of Steps 2–7 runs; for `same-head` and
-`incremental` read Re-runs below before Step 2.
+The summary's `mode:` line decides how much of Steps 1b–6 runs; for `same-head` and
+`incremental` read Re-runs below before Step 1b.
+
+## Step 1b — dispatch codex (only with `--codex`)
+
+Codex reviews bugs and design independently: it never sees `notes.md` or the forks' work,
+so it can catch what a wrong understanding of yours hides from all three forks. It does not
+judge threads; the THREADS fork owns them. Dispatch it as soon as gather returns, before
+Step 2, so it runs while you read.
+
+Load the `codex` skill and follow it: a fresh `mktemp` dir, `gpt-6-astra` at `high`,
+`--sandbox read-only`, `-C <$WORK/wt>`, run in the background. Write this prompt verbatim,
+filling the brackets:
+
+```
+You are an independent reviewer of PR <n> in <owner/repo>. Your working directory is a
+worktree at the PR head <sha>; the base is <sha> (`git show <base>:<path>` shows a file
+before the PR, `git diff <base>...HEAD` shows the change). Read <$WORK>/dossier.md (PR body,
+commits, every hunk with head line ranges), <$WORK>/linear.md (linked issues) and, if
+present, <$WORK>/decoherence.md (flow signals and the 4-week fix history of the areas the PR
+touches), then §Bugs, §Contract claims, §Design and §Decoherence of
+<$SKILL_DIR>/references/checklist.md. Build your own understanding from the code: what each
+touched module does, who calls it, what invariants the change must keep.
+
+Then find:
+1. Bugs this PR introduces. Trace each through the code to a failing input and the wrong
+   output; drop what you cannot trace, or keep it at confidence low with the unverified
+   assumption named. Open a callee's body before trusting any comment, catch or mock about
+   what it does. Pre-existing defects go under "While you are here".
+2. Design and simplification opportunities: responsibilities, size, duplication, naming,
+   abstractions the change did not need; semantics-changing simplifications labelled
+   TRADEOFF with what is lost and who hits it; special cases or second ways added instead
+   of fixing the model, naming the existing path and citing earlier fixes from git log.
+Do not review discussion threads or reviewer comments; another reviewer covers them.
+
+Be critical: try to break the change before you call it correct. Cite every claim as
+path:line at head. Use the §3 and §4 formats of <$SKILL_DIR>/references/report-format.md,
+with ids CB1… for bugs, CP1… for "While you are here" and CD1… for design; say so when a
+section is empty. Return the
+findings as your final message and nothing else.
+<read-only line>
+```
+
+Keep the codex dir and session id for Step 3b.
 
 ## Step 2 — understand (you)
 
 Read, in this order: `references/checklist.md`, `references/report-format.md`,
-`$WORK/dossier.md`, `$WORK/threads.md`, `$WORK/linear.md`. Then open code in `$WORK/wt` to
-answer the questions a newcomer would ask: what does each touched module do, who calls it,
+`$WORK/dossier.md`, `$WORK/threads.md`, `$WORK/linear.md`, `$WORK/decoherence.md`. Then open
+code in `$WORK/wt` to answer the questions a newcomer would ask: what does each touched module do, who calls it,
 what invariant does the change lean on. Read whole functions around each hunk, and the
-callers the dossier lists; stop there unless a specific question sends you further. What you
-read here is inherited by three forks, so read what all three need and nothing more.
+callers the dossier lists; stop there unless a specific question sends you further. When a
+comment or catch near a hunk says what a callee does, open the callee before you repeat the
+claim in `notes.md`. What you read here, and what you believe, is inherited by three forks,
+so read what all three need and nothing more.
 
 Write `$WORK/notes.md` (under ~80 lines): the goal in one sentence, the mechanism in
 execution order, the modules and what changed in each, the invariants you believe the
@@ -92,11 +145,9 @@ from here on.
 
 ## Step 3 — fork three judgments, write the explainer meanwhile
 
-Dispatch all three in one message with `Agent(subagent_type: "fork")`. Forks inherit
-everything you have read, so the prompts are short. **Forks return their findings as
-text**: the harness blocks subagents from writing report files, and the findings have to
-reach you anyway. Save each reply verbatim to its `findings-*.md` the moment it arrives; the
-verifier reads the files.
+Dispatch all three in one message with `Agent(subagent_type: "fork")`. Forks inherit everything you have read, so the prompts are short. **Forks return their findings as
+text** (Ground rules). Save each reply verbatim to its `findings-*.md` the moment it arrives;
+the verifier reads the files.
 
 Skip the THREADS fork only when `threads.md` has no unresolved threads and no top-level
 review or comment that asks for something; §5 then says so in one line with the resolved
@@ -105,10 +156,11 @@ count.
 ```
 You are the BUGS fork of review-pr. Using what you already understand plus the code in
 <$WORK/wt> (head <sha>, base <sha>), hunt for defects introduced by this PR following
-checklist.md §Bugs. Trace each candidate through the code until you can state the failing
+checklist.md §Bugs, and check every claim about a callee per §Contract claims by opening
+the callee's body. Trace each candidate through the code until you can state the failing
 input and the wrong output; drop what you cannot trace, or keep it as confidence low with
 the unverified assumption named. Say for each whether the defect is new in this PR or
-pre-existing (pre-existing ones go under "While you are here"). Write
+pre-existing (pre-existing ones go under "While you are here", ids P1…). Write
 your findings in the §3 format of report-format.md (ids B1…, permalinks from meta.json).
 <read-only line> Return the findings text and nothing else: no preamble, no restatement of
 the PR; the main agent saves it as findings-bugs.md.
@@ -119,7 +171,12 @@ You are the DESIGN fork of review-pr. Using what you already understand plus the
 <$WORK/wt> (head <sha>), look for design and simplification opportunities following
 checklist.md §Design: responsibilities, size, duplication, naming, abstractions the change
 did not need, and semantics-changing simplifications labelled TRADEOFF with what is lost
-and who hits it. Anchor each on path:line and show the simpler shape in a short sketch
+and who hits it. Also judge decoherence per checklist.md §Decoherence: does this PR add a
+special case, a branch or a second way of doing something instead of fixing the model? Use
+<$WORK>/decoherence.md (the PR's flow signals and the 4-week fix history of the areas it
+touches) and <$WORK>/fix-history.md when it exists. When you flag one, name the existing
+path the new one should replace or extend, and cite the evidence (earlier fixes by PR, the
+copied check). Anchor each on path:line and show the simpler shape in a short sketch
 when it helps. Return your findings in the §4 format of report-format.md (ids D1…) and
 nothing else; the main agent saves it as findings-design.md. <read-only line>
 ```
@@ -135,12 +192,32 @@ thread that looks wrongly resolved. Return the §5 table and paragraphs of repor
 and nothing else; the main agent saves it as findings-threads.md. <read-only line>
 ```
 
-While they run, write `$WORK/review.md` itself, not a scratch file: the header, a
-placeholder line for "At a glance", sections 1 and 2 in full, and placeholder lines for
-§3–§5 and "Not verified" that Step 7 replaces. Follow `report-format.md`. Section 1 speaks to someone who has never opened
+While they run, in `full` and `incremental` mode, write `$WORK/review.md` itself, not a
+scratch file: the header, a placeholder line for "At a glance", sections 1 and 2 in full, and
+placeholder lines for §3–§5 and "Not verified" that Step 6 replaces (`same-head` edits the
+last review in place; see Re-runs). Follow `report-format.md`. Section 1 speaks to someone who has never opened
 the module: define terms, give one before/after scenario with the same explicit input on
 both sides and real names from the code. Section 2 is the module table, the mechanism in
 order, breaking changes, tests.
+
+## Step 3b — challenge codex (only with `--codex`)
+
+Once the forks are in, wait for codex and save its final message verbatim to
+`$WORK/findings-codex.md`. Match its findings to the BUGS and DESIGN findings, `P` items
+included, by claim and location, not by id. Write the match at the top of the file under
+`## Match`, one line per codex id: `CB2 = B3` (same finding), `CB1 ≠ B2` (same place,
+opposite claims), `CD3 = none` (codex only).
+
+Then resume the **same** codex session once (codex skill, "Following up"). `codex exec
+resume` takes no `-C` and a `cd` does not persist between Bash calls, so run it as one
+command: `cd <$WORK/wt> && codex exec resume <session id> …`. The follow-up opens with "You
+are still in the worktree <$WORK/wt> at head <sha>." and pastes:
+- the BUGS and DESIGN findings it did not raise, from `findings-bugs.md` and
+  `findings-design.md`: is each real or wrong? Cite path:line either way.
+- each codex finding you doubt, with your evidence from the code: confirm or withdraw.
+
+Append its reply to `findings-codex.md` under `## Challenge round`. Drop nothing yourself
+here; the verifier judges what survives.
 
 ## Step 4 — verify the findings cold (opus subagent)
 
@@ -152,39 +229,46 @@ You are the verify subagent for review-pr. Worktree: <$WORK/wt> at head <sha>; b
 <sha> (use `git -C <$WORK/wt> show <base>:<path>` to see the code before the PR). Read
 <$WORK>/findings-bugs.md, findings-design.md and findings-threads.md, and for each thread
 row the original comments in <$WORK>/threads.md (the row's ask is a paraphrase; judge
-against the reviewer's words). Do not read the PR body or dossier first; judge the code. For each bug: is the path reachable, is the input
-possible, does a guard elsewhere prevent it, and did the PR introduce it or was it already
-there at base. For each design item: is the simpler shape equivalent, and for a TRADEOFF, is
-the stated loss the whole loss. For each thread row marked addressed or partially
-addressed: does the cited head code actually meet the ask. Write <$WORK>/verify.md with one
-line per id: <id>: confirmed | refuted — <why, path:line> | unverifiable — <what you would
-need>. <read-only line> Return ONLY the counts.
+against the reviewer's words). Do not read the PR body or dossier first; judge the code. A design
+item that cites earlier fixes or a copied check: confirm it with git log and
+<$WORK>/fix-history.md. For each bug and each "While you are here" item (P…): is the path
+reachable, is the input possible, does a guard elsewhere prevent it, and did the PR
+introduce it or was it already there at base. For a stale-claim bug: open the cited callee
+line and confirm the claimed outcome cannot happen on the path the call takes. For each
+design item: is the simpler shape equivalent, and for a TRADEOFF, is the stated loss the
+whole loss. For each thread row (T…, R…): if it says addressed or partially addressed, does
+the cited head code meet the ask; if it says nothing landed (not addressed, acknowledged,
+pending, answered, no change), is the ask met anywhere at head (git grep: the fix may sit in
+another file). If <$WORK>/findings-codex.md exists, it holds an independent reviewer's
+findings (CB…, CP…, CD…), a `## Match` map to the fork ids, and a challenge round. Judge
+every codex id it did not withdraw the same way. Give each `=` pair one verdict on one line
+(`B3 = CB2: …`); for a `≠` pair, say which claim the code supports. Where the challenge round
+calls a B, P or D finding wrong, weigh its argument in that finding's verdict.
+<read-only line> Return one line per id and nothing else; the main agent saves it as
+verify.md: <id>: confirmed | refuted — <why, path:line> | unverifiable — <what you would
+need>.
 ```
 
-`Agent(subagent_type: "general-purpose", model: "opus")`. Then, for §3–§4: refuted → drop,
-unless you can answer the refutation from the code, in which case keep the finding and say
-what the verifier checked; unverifiable → out of the section and into "Not verified" as a
-question; confirmed → keep. For §5 every row stays: a refuted `addressed` becomes
-`partially addressed` or `not addressed` with the verifier's evidence, an unverifiable one
-becomes `unclear` with the reason.
+`Agent(subagent_type: "general-purpose", model: "opus")`. Save its reply verbatim to
+`$WORK/verify.md`. Then, for §3–§4 and "While you are here": confirmed → keep; unverifiable
+→ out of the section and into "Not verified" as a question; refuted → drop. To keep a
+refuted finding, send the verifier your counter-evidence once (`SendMessage` to the same
+agent) and append its answer to `verify.md` as `<id> (round 2): …`; that verdict stands.
+Without that round, the finding goes to "Not verified" with both positions. For §5 every row
+stays: a refuted `addressed` becomes `partially addressed` or `not addressed` with the
+verifier's evidence, a refuted `not addressed` (or pending, no change) becomes `addressed` or
+`partially addressed` with the head code it found, an unverifiable one becomes `unclear` with
+the reason.
 
-## Step 5 — codex second opinion (only with `--codex`)
+Codex findings follow the same rules. Fork ids are final. An `=` pair stays one finding
+under the fork id. A confirmed codex-only finding joins §3–§4 tagged `(codex)` under the next
+free B, P or D number, after the highest fork id of this run (in `incremental`, fork ids
+already number after the prior ones); add the new id to its match line: `CD3 = none → D4`.
+§6 records the agreements in one line, then every disagreement that survived: a codex
+objection to a finding you kept, a `≠` pair, or a codex finding the verifier refuted, with
+both positions, the verifier's verdict and your take.
 
-Load the `codex` skill and follow it. Point `-C` at `$WORK/wt`, default tier (`gpt-6-astra`,
-`high`). The prompt gives codex: the paths of `dossier.md`, `threads.md`, `checklist.md` and
-`report-format.md`, the head and base shas, the read-only line, and the instruction to look
-for bugs, design issues and thread status in the §3–§5 formats and to be critical. Do
-**not** show codex your findings in the first turn; an independent pass is the point.
-
-Then match codex's findings to yours by claim and location, not by id (ids were assigned
-independently); assign final ids after merging. For each disagreement (codex found something you did not, or
-rejects something you kept), resume the **same** codex session once with your evidence and
-ask it to confirm or withdraw. Verify any codex claim against the code before accepting
-it. Section 6 records the agreements in one line and every disagreement that survived,
-with both positions and your take. Accepted codex-only findings merge into §3–§4 tagged
-`(codex)`.
-
-## Step 6 — tests and benchmarks (only with `--tests`)
+## Step 5 — tests and benchmarks (only with `--tests`)
 
 ```
 You are the tests subagent for review-pr. Worktree: <$WORK/wt> at head <sha>; it has no
@@ -201,7 +285,7 @@ the table and any BLOCKED: lines.
 fails twice. Results go in §7 exactly as the table, and a failing test that matches a bug
 finding is cross-referenced from it.
 
-## Step 7 — assemble and report
+## Step 6 — assemble and report
 
 Merge into `$WORK/review.md` per `report-format.md`: "At a glance" (now filled from the
 verified findings and thread rows), your §1–§2, the verified §3–§5, optional §6–§7, and
@@ -212,12 +296,12 @@ Last, write the head sha to `$WORK/review.done`; the next run builds on this rev
 finished. Your reply to the user is the path to `review.md` followed by its full content. No
 preamble. If the user only wants a summary, they will say so.
 
-## Step 8 — HTML artifact (only with `--html`)
+## Step 7 — HTML artifact (only with `--html`)
 
 Follow `references/html.md`: a sonnet subagent converts `review.md` mechanically into
 `$WORK/review.html`; you publish it with the Artifact tool and give the URL.
 
-## Step 9 — post comments (only when the user names what to post)
+## Step 8 — post comments (only when the user names what to post)
 
 Follow `references/post.md`. The user picks the items and the review action (`comment`,
 `approve`, `request changes`, `pending`); if the action is missing, ask. You write the
@@ -236,7 +320,7 @@ merged or closed PR. The markdown per slug is kept. `gc.sh --all` empties every 
 ## Re-runs
 
 The user often re-reviews a PR they reviewed before. Gather's `mode:` line says how much of
-the last run to reuse. `full` runs Steps 2–7 as written; `--fresh` forces it, and gather
+the last run to reuse. `full` runs Steps 1b–6 as written; `--fresh` forces it, and gather
 falls back to it when the last run did not finish or the interdiff is too big. In every
 mode, "At a glance" opens with the prior-review line and its delta (report-format.md).
 Thread ids are per run; the thread url is the stable reference.
@@ -248,17 +332,31 @@ stand.
 - Step 3: no BUGS or DESIGN fork. Run the THREADS fork only when gather says
   `threads changed: yes`, and add to its prompt: "The last run's threads are in
   <$WORK>/threads.prev.md and its §5 in <$WORK>/review.md; re-judge only the threads that
-  changed or are new, and carry the other rows over."
-- Step 4: verify only the §5 rows the fork changed.
-- Steps 5–6: only when their flag was given and the last review has no §6 or §7.
-- Step 7: edit `review.md` in place: the header (date, CI, state), "At a glance", §5.
+  changed or are new, and carry the other rows over. Match a carried row to its thread by
+  url and give it that thread's T id in this run's threads.md. End with one line
+  `re-judged: <ids>`."
+- Steps 1b and 3b: only when `--codex` was given and the last review has no §6. The
+  challenge round pastes §3–§4 of `review.md` in place of the fork findings, and the match
+  map uses its ids.
+- Step 4: verify only the rows on the fork's `re-judged:` line, and the codex findings if
+  codex ran. Tell the verifier: "findings-bugs.md and findings-design.md are from the last
+  run and already judged in verify.md; do not re-judge them. Read findings-codex.md, the
+  re-judged rows of findings-threads.md, and for the B, P and D ids codex matches or
+  challenges, §3–§4 of <$WORK>/review.md." Merge its reply into `verify.md`: replace the
+  lines of the ids it judged, add new ones, keep the rest, and renumber T lines to this
+  run's ids.
+- Step 5: only when `--tests` was given and the last review has no §7.
+- Step 6: edit `review.md` in place: the header (date, CI, state), "At a glance", §5, and
+  §3, §4 and §6 if codex ran.
 
 **`incremental`.** The head moved by a small interdiff. Start from the last run's
 understanding, then re-check its findings at the new head. The last review lives in
 `$WORK/history/<old7>/`.
+- Step 1b: add to the codex prompt: "The PR was reviewed before at <old sha>; focus on
+  <$WORK>/interdiff.md and the code it interacts with."
 - Step 2: read checklist.md, report-format.md, `history/<old7>/notes.md` and `review.md`,
-  `interdiff.md`, `threads.md`, `linear.md`, and the dossier header plus the dossier sections
-  of the files the interdiff touches. Open the code around each interdiff hunk and the
+  `interdiff.md`, `threads.md`, `linear.md`, `decoherence.md`, and the dossier header plus the
+  dossier sections of the files the interdiff touches. Open the code around each interdiff hunk and the
   callers of what it changes. Write `notes.md` as the old memo brought up to the new head,
   with what changed marked.
 - Step 3: all three forks run. Add to the BUGS and DESIGN prompts: "Your prior findings are
@@ -266,11 +364,13 @@ understanding, then re-check its findings at the new head. The last review lives
   prior id, state its status at head: fixed (cite the change), still present (re-cite at
   head), or moot (the code is gone). Then hunt for new ones in <$WORK>/interdiff.md and in the
   code it interacts with; do not re-review code the interdiff leaves alone. Keep prior ids
-  and number new ones after the highest prior id." The THREADS fork runs as in `full`, and
-  names the commit that addressed a row that was `not addressed` last time.
+  and number new ones after the highest prior id." The THREADS fork runs as in `full`; add to
+  its prompt: "The last review's §5 is in <$WORK>/history/<old7>/review.md. Match its rows
+  to threads by url; for a row that was `not addressed` there, name the commit that
+  addressed it, if any (its diff must show the change)."
 - Step 4: add to the verifier prompt that it reads `interdiff.md` too, and checks every
   fixed and still-present claim as well as the new findings.
-- Step 7: per report-format.md: §1–§2 start from the last review's text, carried findings
+- Step 6: per report-format.md: §1–§2 start from the last review's text, carried findings
   say since when they are open, and each section ends with what got fixed.
 
 ## Feeding directions back into this skill

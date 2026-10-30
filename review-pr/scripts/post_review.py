@@ -15,8 +15,8 @@ post.json:
 }
 
 Behaviour:
-- Reuses the caller's existing pending review on the PR if there is one, else creates one
-  pinned to <head_sha>. Every comment lands inside that review, so the author gets one
+- Reuses the caller's existing pending review on the PR if it is pinned to <head_sha>, refuses
+  if it is pinned to another commit, else creates one pinned to <head_sha>. Every comment lands inside that review, so the author gets one
   notification and the reviewer sees one bundle.
 - Appends the signature "_Written by Claude_" to every comment and to a non-empty review body
   (skip the body's with --unsigned-body when the user wrote it). An empty body is never
@@ -47,7 +47,7 @@ def gql(query, **vars):
 
 
 PR_Q = '''query($owner:String!,$name:String!,$pr:Int!){ repository(owner:$owner,name:$name){ pullRequest(number:$pr){
-  id headRefOid reviews(first:20,states:[PENDING]){ nodes{ id author{login} } } } } }'''
+  id headRefOid reviews(first:20,states:[PENDING]){ nodes{ id author{login} commit{oid} } } } } }'''
 CREATE_REVIEW = 'mutation($pr:ID!,$sha:GitObjectID!){ addPullRequestReview(input:{pullRequestId:$pr,commitOID:$sha}){ pullRequestReview{ id url } } }'
 ADD_REPLY = 'mutation($rev:ID!,$thread:ID!,$body:String!){ addPullRequestReviewThreadReply(input:{pullRequestReviewId:$rev,pullRequestReviewThreadId:$thread,body:$body}){ comment{ url } } }'
 ADD_THREAD = '''mutation($rev:ID!,$path:String!,$line:Int!,$side:DiffSide!,$body:String!){
@@ -102,6 +102,11 @@ def main():
         sys.exit(f"PR head is {pr['headRefOid'][:7]}, not the pinned {a.head[:7]}; re-run gather before posting")
     mine = [r for r in pr['reviews']['nodes'] if (r.get('author') or {}).get('login') == a.me]
     if mine:
+        pinned = (mine[0].get('commit') or {}).get('oid') or ''
+        if pinned != a.head:
+            sys.exit(f"you already have a pending review on this PR pinned to {pinned[:7] or 'an unknown commit'}, "
+                     f"not the reviewed head {a.head[:7]}; submit or discard it from "
+                     f"https://github.com/{a.owner_repo}/pull/{a.pr}/files, then re-run")
         review_id = mine[0]['id']
         print(f'reusing existing pending review {review_id}')
     else:
