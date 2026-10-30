@@ -1,12 +1,11 @@
 # report-format — the shape of `review.md`
 
-`review.md` is the deliverable. It is read by a human with little context and about fifteen
-minutes, so it opens with what they must decide, then explains, then documents. Write it
-with plain-prose rules (the `writing-well` skill, when installed): plain words, active verbs, one thought per sentence, no
-hedges. Keep code out of prose; snippets go in fenced blocks. Every `path:line` is also a
-permalink so the reader lands on the code in one click: head citations use
-`<permalink_base>`, and a citation of the code before the PR says `(base)` and uses
-`<base_permalink_base>`; both are in `meta.json` and the dossier header.
+`review.md` is read by a human with little context and about fifteen minutes: it opens with
+what they must decide, then explains, then documents. Prose rules (the `writing-well` skill
+when installed): plain words, active verbs, one thought per sentence, no hedges; code in
+fenced blocks, not prose. Every `path:line` is a permalink: head citations use
+`<permalink_base>`, citations of the code before the PR say `(base)` and use
+`<base_permalink_base>` (both in `meta.json` and the dossier header).
 
 ````markdown
 # Review: <owner/repo>#<n> — <title>
@@ -17,51 +16,44 @@ Reviewed <date>.
 
 ## At a glance
 
-<Only when gather's `prior:` line is not `none`, open with one line: "You reviewed this
-before: <STATE> on <date> at `<sha7>`, <K> commits since. Last review-pr run: <date> at
-`<old7>` (`history/<old7>/review.md`)." Keep only the parts that exist. When there is no
-prior review, say nothing about it.
+<When gather's `prior:` line is not `none`, open with: "You reviewed this before: <STATE> on
+<date> at `<sha7>`, <K> commits since. Last review-pr run: <date> at `<old7>`
+(`history/<old7>/review.md`)." Keep only the parts that exist. On a re-run add the delta:
+incremental "Since `<old7>`: B1 fixed, B2 still open, D1 moot; new: B4.", same-head "Same
+head as the last run: §1–§4 carried over, §5 refreshed."
 
-On a re-run, follow it with the delta. `incremental`: "Since `<old7>`: B1 fixed, B2 still
-open, D1 moot; new: B4." `same-head`: "Same head as the last run: §1–§4 carried over, §5
-refreshed."
-
-Five to eight lines, no more. The change in one sentence. Then bullets, only those that
-apply: "Blockers: B1, B3" with a half-line each · "Your open asks: T1 addressed, T3 not
-addressed" · "Tradeoffs to decide: D2" · "CI red / behind base / draft" if so. This is the
-part the reader acts on; everything below is support.>
+Then five to eight lines: the change in one sentence, and bullets only where they apply:
+"Blockers: B1, B3" with a half-line each · "Your open asks: T1 addressed, T3 not addressed" ·
+"Tradeoffs to decide: D2" · "CI red / behind base / draft". This is what the reader acts on.>
 
 ## 1. What this PR does, and why
 
-<Under 300 words. The problem as it stood before the PR, in words a newcomer needs; the
-goal; the context from the PR body, the linked issue and the discussion. Define each term
-the first time it appears.>
+<Under 300 words, for someone who has never opened the module. The problem before the PR,
+the goal, the context from the PR body, the linked issue and the discussion. Define each
+term the first time it appears.>
 
-**Before / after.** <One concrete scenario. Name the same explicit input or state on both
-sides and show the observable result on each: a two-column table or two short fenced blocks.
-Real names from the code. Cite where each side comes from (base or head path:line). If the
-PR preserves behaviour, say so in one line and show the structural change instead. A
-second scenario only if the change has two faces.>
+**Before / after.** <One concrete scenario: the same explicit input or state on both sides
+and the observable result on each, as a two-column table or two short fenced blocks, with
+real names from the code and a citation for each side (base or head path:line). If the PR
+preserves behaviour, say so in one line and show the structural change instead.>
 
 **What to keep in mind while reviewing.** <Two or three bullets: the invariants the change
 must preserve, the risky part, what the author says they did not do.>
 
 ## 2. How it does it
 
-<The design, not the diff. Three to six sentences, the way the author would explain it at a
-whiteboard: what new piece or concept the PR introduces, which existing piece takes on the
-work and why there, how data flows between them, and what deliberately stays as it was. A
-reader should be able to draw the boxes and arrows from this paragraph alone. No file names
-here; the table below carries them.>
+<The design, not the diff, in three to six sentences as the author would explain it at a
+whiteboard: the new piece or concept, which existing piece takes on the work and why there,
+how data flows, what deliberately stays as it was. No file names here.>
 
 | Part | Job | Lives in |
 |---|---|---|
 | <a responsibility, named as a concept> | <one clause: what it does for the whole> | `path` |
 
-<Three to seven rows, one per responsibility, never one per file. Then one line for
-everything mechanical: "Mechanical: 11 call sites updated, generated CLI reference, one
-test moved." Optional: a numbered flow of at most five steps, only when the order of
-operations is not obvious from the paragraph.>
+<Three to seven rows, one per responsibility, never one per file; a row that reads like a
+commit message gets rewritten or cut. Then one line for everything mechanical: "Mechanical:
+11 call sites updated, generated CLI reference, one test moved." A numbered flow of at most
+five steps only when the order is not obvious from the paragraph.>
 
 **Breaking or externally visible changes.** <Bullets: public API signatures, wire or storage
 formats, config defaults, CLI flags, error types. "None found" if none.>
@@ -79,14 +71,9 @@ that matter. If the verifier changed your mind, say what it checked.>
 
 ### B2. Stale claim: <what the comment, catch or mock assumes> — `major|minor`, confidence …
 [claim path:line](permalink) · callee: [path:line](permalink) · introduced by this PR
-<A checklist.md §Contract claims item. Quote the claim and the callee line that contradicts
-it. Say what a reader who trusts the claim would get wrong and, when the PR's code or tests
-rely on it, the input that takes the wrong branch.>
-
-<On an incremental re-run, a finding carried over from the last review keeps its id and adds
-"· open since `<old7>`" to its location line; new ones number after the highest prior id.
-Close the section with "Fixed since `<old7>`: B1 (`abc1234`), …" and "Moot: …" when there are
-any. §4 follows the same rules.>
+<A §Contract claims item. Quote the claim and the callee line that contradicts it; say what
+a reader who trusts the claim gets wrong and, when the PR relies on it, the input that takes
+the wrong branch.>
 
 **While you are here** (pre-existing, not introduced by this PR): <bullets, each opening with
 its id (`P1.`) and a permalink, or "nothing".>
@@ -95,8 +82,8 @@ its id (`P1.`) and a permalink, or "nothing".>
 
 ### D1. <one-line proposal>
 [path:line](permalink)
-<What the reader has to hold in their head now, what they would after. A sketch of the
-simpler shape in a fenced block when it helps. Two to six lines.>
+<What the reader holds in their head now and after. A sketch of the simpler shape in a
+fenced block when it helps. Two to six lines.>
 
 ### D2. TRADEOFF: <proposal that changes semantics>
 [path:line](permalink)
@@ -104,23 +91,21 @@ simpler shape in a fenced block when it helps. Two to six lines.>
 
 ### D3. Second way: <new path> beside <existing path>
 [path:line](permalink) · existing: [path:line](permalink)
-<A decoherence item (checklist.md §Decoherence), still advisory. Name the existing path the new
-one duplicates, wraps or bypasses, and what the PR should do with it: extend it, replace it, or
-say when the old one goes. One line of evidence: the earlier fixes to the same function by PR, or
-where the same check was added before. A special case instead of a model fix uses
-`### Dn. Special case: <what>` with the same shape, naming the model change that would cover it.>
+<A §Decoherence item, still advisory. Name the existing path the new one duplicates, wraps
+or bypasses, and what the PR should do: extend it, replace it, or say when the old one goes.
+One line of evidence: earlier fixes to the same function by PR, or where the same check was
+added before. A special case instead of a model fix uses `### Dn. Special case: <what>` with
+the same shape, naming the model change that would cover it.>
 
 ## 5. Discussion status
 
-<One row per unresolved thread and per top-level ask (a review or conversation comment that
-asks for something). Rows where the user took part first, starred. The `Remaining` column
-carries what is left in ten words; "—" when addressed.>
+<One row per unresolved thread and per top-level ask. Rows where the user took part first,
+starred. `Remaining` carries what is left in ten words; "—" when addressed.>
 
 | # | Who · where | Ask | Status | Evidence | Remaining |
 |---|---|---|---|---|---|
 | T1 | ★ spalladino · [path:line](permalink) | <ten words> | addressed | `abc1234` lines 40–52 | — |
 | T2 | alice · [path:line](permalink) | … | answered, no change | author: "…" | accept or push back |
-| T3 | ★ spalladino · [path:line](permalink) | … | not addressed | file unchanged; ask not met elsewhere either | … |
 | R1 | ★ spalladino · review 2026-09-20 | <ten words> | acknowledged, pending | author: "will do in follow-up" | decide if ok |
 
 <Below the table, a short paragraph only for rows that need a decision from the reader.>
@@ -129,36 +114,31 @@ Resolved: <N> threads. <One line only for one that looks wrongly resolved.>
 
 ## 6. Second opinion (codex) — only with --codex
 
-<Codex reviews bugs and design only, never threads. Where codex agreed, in one line. Then
-each disagreement that survived the challenge round and the verifier: a codex objection to
-a finding you kept, a fork and a codex finding that contradict each other, or a codex
-finding the verifier refuted, with both positions, the verifier's verdict and your take.
-Codex-only findings the verifier confirmed are merged above under the next free id and
-tagged `(codex)`.>
+<Where codex agreed, in one line. Then each disagreement that survived the challenge round
+and the verifier (a codex objection to a kept finding, a `≠` pair, a codex finding the
+verifier refuted): both positions, the verdict, your take. Confirmed codex-only findings are
+merged above under the next free id, tagged `(codex)`.>
 
 ## 7. Tests and benchmarks — only with --tests
 
-<Command run, pass/fail counts, failures with the failing assertion, benchmark deltas as
-a table. Never in prose.>
+<Command run, pass/fail counts, failures with the failing assertion, benchmark deltas, as a
+table. Never in prose.>
 
 ## Not verified
 
 <Bullets: claims you could not check and why, and findings the verifier could not settle,
-turned into questions. Keep this honest; it is the most read section after "At a glance".>
+turned into questions. The most read section after "At a glance".>
 ````
 
 Rules:
 
-- On an incremental re-run, §1 and §2 start from the last review's text; change only what the
-  interdiff changes. A reader who read the last review should find the new parts fast.
-
-- "At a glance" and §1 are for a reader who has never seen the module. §2 is for one who has,
-  but it is still the shape of the solution, not a list of edits: if a table row reads like a
-  commit message or names functions one after another, rewrite it as a responsibility or cut
-  it. File-level detail is in the dossier and the diff; the reader has both.
-- Every finding in 3 and 4 has an id (`B1`, `P1`, `D2`) so the user can refer to it, the same
-  id `verify.md` judges; thread ids (`T1`) match this run's `threads.md` (a row carried from
-  an earlier run takes the id of its thread url there), top-level asks are `R1…`.
-- Never soften a finding to avoid conflict with the PR author; never harden one to seem
+- Every finding in §3 and §4 has an id (`B1`, `P1`, `D2`) so the user can refer to it, the
+  same id `verify.md` judges. Thread ids (`T1`) match this run's `threads.md` (a row carried
+  from an earlier run takes the id of its thread url there); top-level asks are `R1…`.
+- Incremental re-run: §1 and §2 start from the last review's text and change only what the
+  interdiff changes. A carried finding keeps its id and adds "· open since `<old7>`" to its
+  location line; new ones number after the highest prior id. §3 and §4 each close with
+  "Fixed since `<old7>`: B1 (`abc1234`), …" and "Moot: …" when there are any.
+- Never soften a finding to avoid conflict with the author; never harden one to seem
   thorough. Confidence carries the uncertainty.
-- Sections 6 and 7 exist only when the flag was given. Do not leave empty headings.
+- §6 and §7 exist only when the flag was given. No empty headings.

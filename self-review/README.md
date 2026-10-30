@@ -22,9 +22,9 @@ Reviews your own change before you post it. It covers the working copy (commits 
 ## Modes
 
 - **full**: first run, `--fresh`, old snapshot gone, or interdiff too big (over half the change's lines or ~1500).
-- **incremental**: small interdiff (a plain diff, or a range-diff when the branch was rebased). Reviewers mark each prior id fixed, still present, moot or decided, and hunt new ones only in `interdiff.md`.
+- **incremental**: small interdiff (a plain diff, or a range-diff after a rebase). Reviewers mark each prior id fixed, still present, moot or decided, and hunt new ones only in `interdiff.md`.
 - **unchanged**: same tree and same base. The orchestrator returns the last report; `--fresh` forces a new review.
-- **Challenge mode.** The orchestrator reads `$CLAUDE_CODE_ENTRYPOINT`. With `cli` (interactive), the verifier resumes the original BUGS or DESIGN agent with SendMessage (`resume`). With anything else, such as `sdk-cli` under `claude -p`, a resumed agent's reply would go to the main agent. So the verifier spawns a fresh stand-in with the reviewer's prompt (`respawn`). Codex is resumed by session id in both modes. Each reviewer gets one round.
+- **Challenge mode**, from `$CLAUDE_CODE_ENTRYPOINT`: `cli` (interactive) → the verifier resumes the original BUGS or DESIGN agent with SendMessage (`resume`); anything else, such as `sdk-cli` under `claude -p`, would route the reply to the main agent, so the verifier spawns a stand-in with the reviewer's prompt (`respawn`). Codex is resumed by session id in both. One round per reviewer.
 
 ## Flow
 
@@ -34,51 +34,26 @@ sequenceDiagram
     participant M as Main
     participant O as Orchestrator
     participant G as Gather
-    participant W as WORK dir
-    participant C as Codex
-    participant B as BUGS
-    participant D as DESIGN
+    participant W as Cache dir
+    participant R as Reviewers BUGS, DESIGN, codex
     participant V as Verifier
-    participant S as Stand-in
-    M->>M: scope, base, merge-base, issue key
-    M->>O: verbatim prompt, facts only
+    U->>M: review my change
+    M->>O: spawn with facts only
     O->>G: spawn
-    G->>W: snapshot, meta, dossier, linear, decoherence, fix-history
-    G-->>O: summary with mode
-    alt mode unchanged
-        W->>O: last report.md
-    else full or incremental
-        par reviewers
-            O->>C: background exec unless --no-codex
-            C-->>O: CB, CP, CD findings
-        and
-            O->>B: spawn
-            B-->>O: B and P findings
-        and
-            O->>D: spawn
-            D-->>O: D findings
-        end
-        O->>W: findings-codex, findings-bugs, findings-design
-        O->>V: spawn with challenge mode
-        W->>V: findings files, snapshot code
-        loop one round per challenged reviewer
-            alt resume, interactive cli
-                V->>B: SendMessage challenges, same for DESIGN
-                B-->>V: hold, amend or withdraw
-            else respawn, claude -p
-                V->>S: spawn stand-in with reviewer prompt
-                S-->>V: hold, amend or withdraw
-            end
-            V->>C: codex exec resume by session id
-            C-->>V: response-1.md
-        end
-        V-->>O: verdicts and verified findings
-        O->>W: verify.md, report.md, report.done
+    G->>W: snapshot and context
+    G-->>O: summary
+    O->>R: spawn in parallel
+    R-->>O: findings
+    O->>V: spawn cold
+    loop one round per reviewer
+        V->>R: challenge findings directly
+        R-->>V: hold, amend or withdraw
     end
-    O-->>M: report verbatim
-    M->>U: report verbatim plus implementer note
-    U->>M: fix, wontfix or follow-up per finding
-    M->>W: append decisions.md
+    V-->>O: verified findings
+    O->>W: write report
+    O-->>M: report
+    M-->>U: report plus implementer note
+    U->>M: fix, wontfix or follow-up
 ```
 
 ## Dependencies

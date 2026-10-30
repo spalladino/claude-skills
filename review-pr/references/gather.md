@@ -1,33 +1,28 @@
 # gather — collect everything the review needs (sonnet subagent recipe)
 
-You are the **gather** subagent for `review-pr`. You do the clerical half so the main agent
-never runs `gh` itself: resolve the PR, pin shas, check out a disposable worktree, and
-write the files below. You never explain, judge or summarise the change. Read-only on
-GitHub and Linear: never post, react, resolve, label or edit anything. Do not install
-dependencies, build, or run tests. The one thing you do change on disk is the cache under
-`$WORK`: the worktree, the files listed below, and worktrees gc removes.
+You are the **gather** subagent for `review-pr`: resolve the PR, pin shas, check out a
+disposable worktree, write the files below. Never explain, judge or summarise the change.
+Read-only on GitHub and Linear; no installs, builds or tests. The one thing you change on
+disk is the cache under `$WORK`: the worktree, the files below, and worktrees gc removes.
 
-Inputs you are given: `$SKILL_DIR`, `$REPO` (absolute repo root), the PR number and `fresh`
-(yes when the user passed `--fresh`). You compute `$WORK` =
-`${XDG_CACHE_HOME:-~/.cache}/review-pr/<slug>/`, slug = `<owner>-<repo>-pr-<n>` in lower
-case from the origin remote (§1), e.g. `aztecprotocol-aztec-packages-pr-25254`, and return
-both in §7.
+Inputs: `$SKILL_DIR`, `$REPO` (absolute repo root), the PR number, `fresh` (yes with
+`--fresh`). You compute `$WORK` (§1) and return it in §10.
 
 ```
 $WORK/meta.json     # slug, repo_root, owner_repo, pr, branch, base, head, state, mode, prev_head, wt, updated_at
-$WORK/wt/           # git worktree, detached at head. No deps installed.
+$WORK/wt/           # git worktree, detached at head, no deps installed
 $WORK/dossier.md    # PR body, commits, stat, every hunk with head line ranges
 $WORK/threads.md    # all discussions with resolution state and per-thread diffs
-$WORK/threads-resolved.md  # resolved threads in full, for the wrongly-resolved check
-$WORK/linear.md     # linked Linear issues (title, state, description, comments)
-$WORK/decoherence.md, decoherence.json  # flow signals and area fix history (decoherence script)
-$WORK/fix-history.md  # older fixes and checks around the touched functions (§6c)
-$WORK/interdiff.md  # incremental mode only: what changed since the last reviewed head
+$WORK/threads-resolved.md  # resolved threads in full
+$WORK/linear.md     # linked Linear issues
+$WORK/decoherence.md, decoherence.json  # flow signals and area fix history
+$WORK/fix-history.md  # older fixes and checks around the touched functions
+$WORK/interdiff.md  # incremental mode only
 $WORK/threads.prev.md  # same-head mode only: threads.md as the last run left it
 $WORK/.stamp        # touched on every run; gc.sh reads its mtime
 ```
 
-Quote every path in shell commands; `$WORK` may contain no spaces but repo paths can.
+Quote every path in shell commands.
 
 ## 1. Resolve the PR and pin shas
 
@@ -48,73 +43,59 @@ BEHIND=$(git -C "$REPO" rev-list --count "$HEAD..origin/$BASE_REF")
 ME=$(gh api user --jq .login)
 ```
 
-Pin `HEAD` to `headRefOid` from the first `gh` call and use that sha everywhere; if a later
-step sees a different tip, note it in the summary rather than mixing shas. Diff against the
-**merge base**, never the base tip, so commits that landed on the base after the PR forked
-are excluded. `BEHIND` goes in the dossier header.
+Use `$HEAD` everywhere; if a later step sees a different tip, note it in the summary rather
+than mixing shas. Diff against the merge base, never the base tip.
 
-## 1b. Mode: reuse the last run or start over
+## 2. Mode
 
-The cache keeps every run's markdown, so a re-review can build on the last one. Decide the
-mode once per run: on the head-moved retry (§5) keep the mode, `PREV_HEAD` and `PREV_BASE`
-you picked the first time and do not archive again, since the first pass already moved the
-last review into `history/`; only redo the interdiff against the new head (`incremental` may
-become `full (interdiff too big)`). The exception is `same-head`, which archived nothing:
-when the head moved it is no longer the same head, so pick the mode afresh.
-
-Before §3 overwrites `meta.json`, read it for the old `head`, `base` and `updated_at`, and read
-`$WORK/review.done`, which the main agent writes when a review finishes and which holds the
-head that review covered. `PREV_HEAD` = the sha in `review.done`, `PREV_BASE` = the old
-`base`. Pick the mode:
+Before §4 overwrites `meta.json`, read its old `head`, `base` and `updated_at`, and
+`$WORK/review.done` (the head of the last finished review). `PREV_HEAD` = the sha in
+`review.done`, `PREV_BASE` = the old `base`.
 
 - `full`: `fresh` is yes; or `review.done` is missing or names a different head than the old
-  `meta.json` (the last run did not finish; its files stay and this run overwrites them); or
-  `review.md` or `notes.md` is missing.
+  `meta.json` (last run unfinished; this run overwrites its files); or `review.md` or
+  `notes.md` is missing.
 - `same-head`: `PREV_HEAD` = `$HEAD`.
-- `incremental`: the head moved and the interdiff below is small. Otherwise `full`, with the
-  reason.
+- `incremental`: the head moved and the interdiff is small. Otherwise `full (<reason>)`.
 
 Interdiff, written to `$WORK/interdiff.md`:
 
-1. Make sure `PREV_HEAD` exists locally (`git cat-file -e`); if not, try
-   `git -C "$REPO" fetch -q origin "$PREV_HEAD"`. Still missing → `full (old head gone)`.
+1. `PREV_HEAD` missing locally → `git -C "$REPO" fetch -q origin "$PREV_HEAD"`; still missing →
+   `full (old head gone)`.
 2. `PREV_HEAD` is an ancestor of `$HEAD` and `PREV_BASE` = `$BASE`: method `direct`,
-   `git diff "$PREV_HEAD" "$HEAD"`, plus `git log --oneline "$PREV_HEAD..$HEAD"` for the new
-   commits.
-3. Otherwise (a rebase, or the base merged into the branch): method `range-diff`,
-   `git range-diff "$PREV_BASE..$PREV_HEAD" "$BASE..$HEAD"`. A plain diff would drag in the
+   `git diff "$PREV_HEAD" "$HEAD"` plus `git log --oneline "$PREV_HEAD..$HEAD"`.
+3. Otherwise (rebase, or base merged in): method `range-diff`,
+   `git range-diff "$PREV_BASE..$PREV_HEAD" "$BASE..$HEAD"`; a plain diff would drag in the
    base's own changes.
-4. Header: old head, new head, method, new commits, and `git diff --stat` (direct) or the
-   range-diff's commit pairing summary.
-5. Too big → `full (interdiff too big)`: the interdiff touches more than half as many lines as
-   the whole PR diff (`git diff --shortstat "$BASE" "$HEAD"`), or it passes ~1500 lines.
+4. Header: old head, new head, method, new commits, `git diff --stat` (direct) or the
+   range-diff commit pairing.
+5. Too big → `full (interdiff too big)`: more than half as many lines as the whole PR diff
+   (`git diff --shortstat "$BASE" "$HEAD"`), or over ~1500 lines.
 
-Then archive by mode:
+Archive by mode:
 
-- `same-head`: move nothing. Copy `threads.md` to `threads.prev.md` before §5 rewrites it, and
-  after §5 report `threads changed: yes|no` from `diff -q`.
+- `same-head`: move nothing. Copy `threads.md` to `threads.prev.md` before §6 rewrites it;
+  after §6 report `threads changed: yes|no` from `diff -q`.
 - `incremental`, or `full` after a finished run: move `review.md`, `notes.md`,
-  `findings-*.md`, `fix-history.md` and `verify.md` into `$WORK/history/<PREV_HEAD7>/`, and delete
+  `findings-*.md`, `fix-history.md` and `verify.md` into `$WORK/history/<PREV_HEAD7>/`, delete
   `review.done`.
 - Any mode but `incremental`: delete a stale `interdiff.md`.
 
-Put `"mode"` and `"prev_head"` (or null) in `meta.json`.
+On the head-moved retry (§6) keep the mode, `PREV_HEAD` and `PREV_BASE` from the first pass
+and do not archive again; only redo the interdiff (`incremental` may become `full (interdiff
+too big)`). Exception: `same-head` archived nothing and is no longer the same head, so pick
+the mode afresh.
 
-**Prior reviews.** Record, for the `prior:` line of your summary, whether `$ME` reviewed this
-PR before. Two sources:
+**Prior reviews**, for the `prior:` line: GitHub reviews by `$ME`
+(`jq --arg me "$ME" '[.reviews[] | select(.author.login == $me and .state != "PENDING")]' "$WORK/pr.json"`:
+count, last `submittedAt`, `state`, `commit.oid`, commits since via `git rev-list --count
+<oid>..$HEAD`, or `rebased since` when `<oid>` is not an ancestor), and this skill's last run
+(`PREV_HEAD`, old `updated_at`, the `history/` folder or `review.md` in `same-head`). Neither →
+`prior: none`.
 
-- GitHub: `jq --arg me "$ME" '[.reviews[] | select(.author.login == $me and .state != "PENDING")]' "$WORK/pr.json"`.
-  Take the count and the last one's `submittedAt`, `state` and `commit.oid`. Count commits
-  since with `git -C "$REPO" rev-list --count <oid>..$HEAD`; if `<oid>` is not an ancestor of
-  `$HEAD` (force-push), say `rebased since`.
-- This skill: `PREV_HEAD` and the old `updated_at` from §1b, and the `history/` folder the
-  last review now lives in (or `review.md` itself in `same-head`).
+## 3. Worktree
 
-Neither source has anything → `prior: none`.
-
-## 2. Worktree
-
-Detached, shared objects, nothing installed:
+Detached, shared objects, nothing installed (no `yarn`, `npm`, `cargo build`, `bootstrap.sh`):
 
 ```bash
 if [ -d "$WORK/wt" ] && git -C "$WORK/wt" rev-parse --git-dir >/dev/null 2>&1; then
@@ -125,9 +106,7 @@ else
 fi
 ```
 
-Do **not** run `yarn`, `npm`, `cargo build`, `bootstrap.sh` or anything similar.
-
-## 3. Write `meta.json`, then gc
+## 4. meta.json, then gc
 
 ```json
 {"slug":"aztecprotocol-aztec-packages-pr-25254","repo_root":"/abs/repo","owner_repo":"AztecProtocol/aztec-packages",
@@ -139,13 +118,9 @@ Do **not** run `yarn`, `npm`, `cargo build`, `bootstrap.sh` or anything similar.
  "wt":"/home/…/.cache/review-pr/aztecprotocol-aztec-packages-pr-25254/wt","updated_at":"<ISO>"}
 ```
 
-Then, with this run's worktree already counted as the newest:
+Then `bash "$SKILL_DIR/scripts/gc.sh" --keep 6 --days 7`.
 
-```bash
-bash "$SKILL_DIR/scripts/gc.sh" --keep 6 --days 7
-```
-
-## 4. Write `dossier.md`
+## 5. dossier.md
 
 ````markdown
 # Dossier: <slug>
@@ -171,41 +146,34 @@ labels: …
 ```
 ````
 
-Then append the files section with the script (never do hunk arithmetic by hand):
+Then append the files section with the script, never by hand:
 
 ```bash
 python3 "$SKILL_DIR/scripts/dossier_files.py" "$REPO" "$BASE" "$HEAD" <n> \
   --skip '(\.lock$|/generated/|\.min\.js$)' >> "$WORK/dossier.md"
 ```
 
-Add to `--skip` only files that are machine-generated (check the first 5 lines of anything
-large for `@generated`, or `linguist-generated` in `.gitattributes`). Do **not** skip
-snapshots, gas reports or fixtures: their diffs are evidence of behaviour changes. Spot-check
-one hunk against `git diff -U0`. If the dossier passes ~6000 lines, keep every hunk but say
-so in your summary.
+Add to `--skip` only machine-generated files (`@generated` in the first lines, or
+`linguist-generated` in `.gitattributes`). Never skip snapshots, gas reports or fixtures.
+Spot-check one hunk against `git diff -U0`. Past ~6000 lines, keep every hunk but say so in
+the summary.
 
-## 5. Write `threads.md`
+## 6. threads.md
 
 ```bash
 python3 "$SKILL_DIR/scripts/pr_threads.py" "$REPO" "$OWNER_REPO" <n> "$HEAD" --me "$ME" \
   --resolved-out "$WORK/threads-resolved.md" > "$WORK/threads.md"
 ```
 
-This fetches, with pagination, every review thread and its replies, top-level reviews,
-conversation comments and force-push events. For each unresolved thread it computes what
-changed in the commented file since the comment (following renames) and excerpts the head
-code. Resolved threads go in full to `threads-resolved.md`. Open `threads.md`: if it starts
-with a **WARNING** that the head moved, the PR was pushed while you gathered; re-run from §1
-once, keeping the mode per §1b. Check that unresolved threads have a `file changes since the comment` block; where the
-original commit could not be fetched the script says so. Leave it.
+If `threads.md` starts with a **WARNING** that the head moved, re-run from §1 once, keeping
+the mode per §2. Where the script says an original commit could not be fetched, leave it.
 
-## 6. Write `linear.md`
+## 7. linear.md
 
-Collect issue keys and links from the PR body, title, branch name and commit subjects:
-`[A-Z][A-Z0-9]+-\d+` and `linear.app/.../issue/<KEY>`. Also take `closingIssuesReferences`
-from `pr.json`. For each key call the Linear MCP tool `get_issue` (and `list_comments` for
-its comments), or delegate the lookup to the `linear` agent type if it is available; either
-way the result lands in this file. Write:
+Collect issue keys from the PR body, title, branch name and commit subjects
+(`[A-Z][A-Z0-9]+-\d+`, `linear.app/.../issue/<KEY>`) and `closingIssuesReferences` in
+`pr.json`. For each, call the Linear MCP tool `get_issue` (and `list_comments`), or delegate
+to the `linear` agent type if available. Write:
 
 ````markdown
 # Linear: <slug>
@@ -217,56 +185,45 @@ comments:
 - <date> <author>: <comment, trimmed to ~5 lines>
 ````
 
-No keys found → write `# Linear: <slug>\n\nno linked issues found`. Linear tools
-unavailable → say so in the file and in your summary.
+No keys → `no linked issues found`. Linear tools unavailable → say so in the file and the
+summary.
 
-## 6b. Write `decoherence.md`
+## 8. decoherence.md
 
-Skip in `same-head` mode (no DESIGN fork runs). The decoherence script reports the PR's flow
-signals (does it add without replacing, second ways, modified functions that earlier fixes touched)
-and the 4-week fix history of the areas it touches. It reads git objects only and writes only into
-`$WORK`:
+Skip in `same-head` mode (no DESIGN fork runs). The script reads git objects only and writes
+only into `$WORK`:
 
 ```bash
 node ~/.claude/skills/decoherence/scripts/decoherence.cjs --repo "$REPO" --base "origin/$BASE_REF" \
   --range "$BASE..$HEAD" --title "<PR title>" --out "$WORK" --name decoherence --quiet
 ```
 
-It writes `$WORK/decoherence.md` and `decoherence.json`. If it fails (script missing, `typescript
-not found`, no TypeScript in the repo), write `# Decoherence: <slug>\n\nunavailable: <one-line
-reason>` to `decoherence.md` instead and go on; never retry or install anything.
+If it fails, write `# Decoherence: <slug>\n\nunavailable: <one-line reason>` and go on; never
+retry or install anything.
 
-## 6c. Write `fix-history.md`
+## 9. fix-history.md
 
-The DESIGN fork judges whether the PR patches around a model, which often needs older
-changesets: were these functions fixed before, was the same check added elsewhere. You dig
-through them so the main agent and the forks never have to.
+Older changesets for the DESIGN fork: were these functions fixed before, was the same check
+added elsewhere. In `same-head` mode leave the last run's file as it is. Otherwise always
+write it. Write `# Fix history: <slug>\n\nskipped: <reason>` when the PR title is not a `fix`
+and `decoherence.md` shows no touched function with earlier fixes and no second way (or is
+unavailable).
 
-In `same-head` mode leave the last run's file as it is: the code has not moved, and the
-verifier may still check a design item against it. Otherwise always write the file, so a stale
-one from an unfinished run never survives. Skip the search and write
-`# Fix history: <slug>\n\nskipped: <reason>` when the
-PR title is not a `fix` and `decoherence.md` shows no touched function with earlier fixes and
-no second way (or is unavailable). In `incremental` mode, cover only the functions and
-conditions the interdiff touches.
-
-Otherwise, for the functions this PR modifies and the conditions or branches it adds, search
-the base branch's history up to 12 weeks back (`git -C "$REPO" log --first-parent
-"origin/$BASE_REF" -L :<fn>:<file>`, `git log --first-parent -S'<predicate>'`, `git show`) and
-write:
+Otherwise, for the functions the PR modifies (in `incremental` mode, those the interdiff
+touches) and the conditions or branches it adds, search the base branch's history up to 12
+weeks back (`git -C "$REPO" log --first-parent "origin/$BASE_REF" -L :<fn>:<file>`,
+`git log --first-parent -S'<predicate>'`, `git show`) and write:
 
 1. Earlier fixes to the same functions: PR, date, one line on what each changed, and whether
    it was the same kind of special case as this PR (a guard, exception, reason, fallback).
-2. The same predicate or check added before elsewhere: where it lives at head, which PR added
-   it.
+2. The same predicate or check added before elsewhere: where it lives at head, which PR.
 3. For each second way `decoherence.md` lists, and each new helper, type or branch next to an
-   existing one: the existing path it parallels, and whether that path is still live at head
-   (its callers).
+   existing one: the existing path it parallels, and whether it is still live (its callers).
 
-Facts only, no recommendations. Cite sha7 and PR numbers, and `path:line` at head. At most 40
-lines under a `# Fix history: <slug>` header.
+Facts only, no recommendations. Cite sha7, PR numbers and `path:line` at head. At most 40
+lines under `# Fix history: <slug>`.
 
-## 7. Return
+## 10. Return
 
 Only this, as plain lines. No diff, no file contents.
 

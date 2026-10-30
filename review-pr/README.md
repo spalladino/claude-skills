@@ -23,13 +23,13 @@ Reviews a GitHub PR for a reviewer who has little context. It explains what the 
 
 ## Modes
 
-- **full**: first run, `--fresh`, last run unfinished, old head gone, or interdiff too big (over half the PR's lines or ~1500). Every step runs, and the flags still gate codex, tests and HTML.
-- **same-head**: the head has not moved. No BUGS or DESIGN fork. THREADS runs only if threads changed. Codex runs only with `--codex` and no prior §6. `review.md` is edited in place.
-- **incremental**: the head moved by a small interdiff. All three forks run. BUGS and DESIGN mark each prior id fixed, still present or moot, and hunt new ones only in `interdiff.md`. The last review is archived under `history/<old7>/`.
-- `--codex`: codex reviews in the background without seeing `notes.md`, and its findings are matched to the forks' findings. One resumed round challenges it, and the verifier judges what survives. Disagreements go in §6.
-- `--tests [pattern]` bootstraps the worktree and runs matching tests, or those touching the changed files. `--html` renders `review.md` and publishes it as an Artifact.
-- `post`: you name items and the action. Main writes `post-plan.md`, the drafter writes `post.json`, main checks it and shows a dry run, and `post_review.py` posts one signed review pinned to head.
-- `gc`: runs `gc.sh --keep 6 --days 7`. It keeps the markdown and removes old worktrees and those of merged or closed PRs.
+- **full**: first run, `--fresh`, last run unfinished, old head gone, or interdiff too big (over half the PR's lines or ~1500). Every step runs; the flags still gate codex, tests and HTML.
+- **same-head**: the head has not moved. No BUGS or DESIGN fork; THREADS only if threads changed; codex only with `--codex` and no prior §6. `review.md` is edited in place.
+- **incremental**: the head moved by a small interdiff. All three forks run; BUGS and DESIGN mark each prior id fixed, still present or moot and hunt new ones only in `interdiff.md`. The last review is archived under `history/<old7>/`.
+- `--codex`: codex reviews in the background without seeing `notes.md`; its findings are matched to the forks', challenged once in a resumed session, and judged by the verifier. Disagreements go in §6.
+- `--tests [pattern]` bootstraps the worktree and runs matching tests, or those touching the changed files. `--html` publishes `review.md` as an Artifact.
+- `post`: you name items and the action; main writes `post-plan.md`, a sonnet drafts `post.json`, main checks it and shows a dry run, and `post_review.py` posts one signed review pinned to head.
+- `gc`: runs `gc.sh --keep 6 --days 7`, keeping the markdown and removing old worktrees and those of merged or closed PRs.
 
 ## Dependencies
 
@@ -46,49 +46,30 @@ Reviews a GitHub PR for a reviewer who has little context. It explains what the 
 
 ```mermaid
 sequenceDiagram
+    participant U as User
     participant M as Main
     participant G as Gather
-    participant W as WORK dir
+    participant W as Cache dir
+    participant F as Forks BUGS, DESIGN, THREADS
     participant C as Codex
-    participant B as BUGS
-    participant D as DESIGN
-    participant T as THREADS
     participant V as Verifier
-    M->>G: spawn with repo, PR, fresh flag
-    G->>W: worktree, meta, dossier, threads, linear, decoherence, fix-history
-    G-->>M: summary with mode
-    opt with --codex
-        M->>C: background review, never sees notes
-    end
-    M->>W: read inputs, write notes.md
-    par forks inherit main context
-        M->>B: hunt bugs
-        B-->>M: B and P findings
+    U->>M: review this PR
+    M->>G: spawn
+    G->>W: worktree and PR context
+    G-->>M: summary
+    par independent judgments
+        M->>F: fork with main's understanding
+        F-->>M: findings
     and
-        M->>D: design and decoherence
-        D-->>M: D findings
-    and
-        M->>T: judge open threads
-        T-->>M: discussion table
+        M->>C: review from scratch
+        C-->>M: findings
     end
-    Note over M: writes review.md sections 1 and 2 while forks run
-    M->>W: findings-bugs, findings-design, findings-threads
-    opt with --codex
-        C-->>M: CB, CP, CD findings
-        M->>C: resume session, fork findings it missed and doubts
-        C-->>M: challenge reply
-        M->>W: findings-codex.md with match map
-    end
-    M->>V: spawn cold, fresh agent
-    W->>V: findings files, threads, worktree code
-    V-->>M: confirmed, refuted or unverifiable per id
-    opt main disputes a refutation
-        M->>V: counter-evidence, once
-        V-->>M: round 2 verdict
-    end
-    Note over M: with --tests a sonnet tests agent runs here
-    M->>W: verify.md, review.md, review.done
-    Note over M: later, sonnet helpers render HTML or draft post comments
+    M->>C: challenge its findings
+    C-->>M: reply
+    M->>V: spawn cold to check all findings
+    V-->>M: verdicts
+    M->>W: write review
+    M-->>U: review
 ```
 
 Files live in `${XDG_CACHE_HOME:-~/.cache}/review-pr/<owner>-<repo>-pr-<n>/`.

@@ -1,32 +1,30 @@
 # orchestrator — run the self-review (opus subagent recipe)
 
 You are the **orchestrator** of `self-review`. You never saw this change being built, and the
-agent that built it is not part of the review. Your job: have the change gathered, reviewed by
-three independent reviewers and settled by a cold verifier, then hand back one report. You do
-not judge findings, and you never reword the verifier's text.
+agent that built it is not part of the review. Have the change gathered, reviewed by three
+independent reviewers and settled by a cold verifier, then hand back one report. You do not
+judge findings and never reword the verifier's text.
 
 ## Rules
 
 - **Prompts are verbatim.** Fill only the bracketed slots, with facts: paths, shas, agent ids,
   the issue key, the user's focus words. Add no context of your own.
-- **The read-only line.** Every subagent and codex prompt carries it; `<read-only line>` below
-  stands for:
+- **`<read-only line>`** in every prompt below stands for:
   > Read-only: do not modify files in the repo or the working copy; do not commit, stash,
   > reset, check out or touch the index; do not post or edit anything on GitHub or Linear; do
   > not install, build or run tests. Your only output is what this prompt asks you to write
   > or return.
-- **Files.** Gather writes its files under `$WORK`. Reviewers and the verifier return text;
-  you save each reply verbatim to the file named below. Everything you and codex write stays
-  under `$WORK`.
-- **Never hand back early.** After any spawn, background command or SendMessage you are
-  waiting on, end your turn with the single word `WAITING`; the completion or reply wakes you.
-  Return only once the verifier has returned and §7 has passed.
-- **Nesting.** You spawn agents two levels below the main agent, and the verifier may spawn one
-  more level. If spawning fails (depth limit, Agent unavailable), return
-  `BLOCKED: <the error>` and stop. Never review the change yourself instead.
+- **Files.** Gather writes under `$WORK`. Reviewers and the verifier return text; save each
+  reply verbatim to the file named below. Everything you and codex write stays under `$WORK`.
+- **Never hand back early.** After any spawn, background command or SendMessage you wait on,
+  end your turn with the single word `WAITING`; the completion or reply wakes you. Return
+  only once the verifier has returned and §7 has passed.
+- **Nesting.** You spawn two levels below the main agent; the verifier may spawn one more. If
+  spawning fails (depth limit, Agent unavailable), return `BLOCKED: <the error>` and stop.
+  Never review the change yourself instead.
 
-Paths: `$SKILL_DIR`, `$REVIEW_PR_DIR`, the repo and the base come from your prompt; `$WORK`
-comes from gather.
+`$SKILL_DIR`, `$REVIEW_PR_DIR`, the repo and the base come from your prompt; `$WORK` from
+gather.
 
 ## 1. Gather (sonnet)
 
@@ -42,9 +40,9 @@ create the snapshot commit object gather.md describes (no ref, no index change).
 Return ONLY the summary block from gather.md §9.
 ```
 
-From its summary take `work`, `snap`, `base`, `mode`, `prev` and `commits`.
+Take `work`, `snap`, `base`, `mode`, `prev`, `commits` and the `files` line from its summary.
 
-Mode `unchanged`: your reply is the line `No changes since the last review (snapshot <prev7>).
+Mode `unchanged`: reply with the line `No changes since the last review (snapshot <prev7>).
 To review again anyway, for instance with a new focus or codex toggled, re-run with --fresh.`,
 then `report: <$WORK>/report.md` and that report verbatim. Write nothing and stop.
 
@@ -61,12 +59,12 @@ are pointed at were written for pull requests: read "this PR" as "this change" a
 "the snapshot", and cite path:line at the snapshot without permalinks.
 ```
 
-The other slots:
-- `<decisions>`: if `$WORK/decisions.md` exists, "The author already decided on some findings;
-  they are listed in <$WORK>/decisions.md with their location and claim. Match them by location
-  and claim, not by id. Do not raise them again unless the code changed in a way that breaks
-  the stated reason." Otherwise empty.
-- `<incremental>`: in mode `incremental`, "This change was reviewed before, at snapshot
+The other slots, empty unless their condition holds:
+- `<decisions>`, when `$WORK/decisions.md` exists: "The author already decided on some
+  findings; they are listed in <$WORK>/decisions.md with their location and claim. Match them
+  by location and claim, not by id. Do not raise them again unless the code changed in a way
+  that breaks the stated reason."
+- `<incremental>`, in mode `incremental`: "This change was reviewed before, at snapshot
   <prev7>; that review is <$WORK>/history/<prev7>/report.md, and <$WORK>/interdiff.md shows what
   changed since. For each of its <B and P ids, including those tagged (codex) | D ids>, state
   its status now: fixed (cite the change), still present (re-cite it), moot (the code is
@@ -74,20 +72,21 @@ The other slots:
   new ones in the interdiff and the code it interacts with; do not re-review code the
   interdiff leaves alone. Keep prior ids and number new ones after the highest prior id."
   For DESIGN add: "The previous fix history is <$WORK>/history/<prev7>/fix-history.md."
-  Otherwise empty.
-- `<focus>`: if the user gave a focus, "The author asks for extra attention on: <focus>. Look
-  there, and elsewhere too." Otherwise empty.
+  For codex, instead: "This change was reviewed before; focus on <$WORK>/interdiff.md and the
+  code it interacts with."
+- `<focus>`, when the user gave one: "The author asks for extra attention on: <focus>. Look
+  there, and elsewhere too."
 
 ## 3. Reviewers, in parallel
 
-Start codex first, then BUGS and DESIGN in one message. Before spawning, save each filled
-prompt to `$WORK/prompt-bugs.md`, `$WORK/prompt-design.md` and `$WORK/codex/prompt.md`; the
+Start codex first, then BUGS and DESIGN in one message. Save each filled prompt before
+spawning (`$WORK/prompt-bugs.md`, `$WORK/prompt-design.md`, `$WORK/codex/prompt.md`); the
 verifier may need them. Keep each agent's id from its spawn result.
 
 ### Codex
 
-Skip it when the prompt says `Codex: no`. Otherwise empty `$WORK/codex/` and run, in the
-background, from the repo root:
+Skip when the prompt says `Codex: no`. Otherwise empty `$WORK/codex/`, write the prompt
+there, and run in the background:
 
 ```bash
 codex exec -m gpt-6-astra -c model_reasoning_effort=high --sandbox read-only \
@@ -95,9 +94,9 @@ codex exec -m gpt-6-astra -c model_reasoning_effort=high --sandbox read-only \
   - < "<$WORK>/codex/prompt.md" > "<$WORK>/codex/log.txt" 2>&1
 ```
 
-When it ends, run `grep -m 1 -oE 'session id: [0-9a-f-]{36}' <$WORK>/codex/log.txt` and keep
-the UUID after `session id: ` (none found → session id `none`; the verifier then settles codex
-disputes without asking). Save `response.md` verbatim to `$WORK/findings-codex.md`.
+When it ends, take the UUID from `grep -m 1 -oE 'session id: [0-9a-f-]{36}' <$WORK>/codex/log.txt`
+(none → session id `none`; the verifier then settles codex disputes without asking) and save
+`response.md` verbatim to `$WORK/findings-codex.md`.
 
 ```
 You are an independent reviewer of a change in <owner/repo>; someone else wrote it. Your
@@ -109,19 +108,15 @@ the 4-week fix history of the areas touched), then §Ground rules, §Bugs, §Con
 own understanding from the code first: what each touched module does, who calls it, what
 invariants the change must keep.
 
-Then find:
-1. Bugs this change introduces. Trace each to a failing input and the wrong output; drop what
-   you cannot trace, or keep it at confidence low with the unverified assumption named. Open
-   a callee's body before trusting any comment, catch or mock about what it does.
-   Pre-existing defects go under "While you are here".
-2. Design and simplification opportunities: responsibilities, size, duplication, naming,
-   abstractions the change did not need; semantics-changing simplifications labelled TRADEOFF
-   with what is lost and who hits it; special cases or second ways added instead of fixing
-   the model, naming the existing path and citing earlier fixes from git log.
-For each finding add "Fix options": one to three ways to fix it, a line each with its cost,
-and which one you recommend.
-<decisions> <in incremental mode: "This change was reviewed before; focus on
-<$WORK>/interdiff.md and the code it interacts with."> <focus>
+Then find (1) bugs this change introduces: trace each to a failing input and the wrong
+output, drop what you cannot trace or keep it at confidence low with the unverified
+assumption named, open a callee's body before trusting any comment, catch or mock about it,
+and put pre-existing defects under "While you are here"; (2) design and simplification
+opportunities per §Design, TRADEOFF-labelled when semantics change, and special cases or
+second ways added instead of fixing the model, naming the existing path and citing earlier
+fixes from git log. For each finding add "Fix options": one to three ways to fix it, a line
+each with its cost, and which one you recommend.
+<decisions> <incremental> <focus>
 
 Be critical: try to break the change before you call it correct. Use the §3 and §4 formats of
 <$REVIEW_PR_DIR>/references/report-format.md, with ids CB1… for bugs, CP1… for "While you are
@@ -187,11 +182,10 @@ it: hold the finding with evidence (path:line), amend it, or withdraw it, then e
 
 ## 4. Challenge mode
 
-Run `echo "$CLAUDE_CODE_ENTRYPOINT"`. `cli` is an interactive session: the verifier resumes a
-reviewer with SendMessage and the reply comes back to it (mode `resume`). Anything else, such
-as `sdk-cli` under `claude -p`, routes a resumed agent's reply to the session's main agent
-instead, so the verifier spawns a fresh stand-in for the reviewer as its own child (mode
-`respawn`). Codex is resumed by session id in both modes.
+Run `echo "$CLAUDE_CODE_ENTRYPOINT"`. `cli` (interactive session): the verifier resumes a
+reviewer with SendMessage and gets the reply (mode `resume`). Anything else, such as `sdk-cli`
+under `claude -p`, routes a resumed agent's reply to the session's main agent, so the verifier
+spawns a stand-in as its own child (mode `respawn`). Codex is resumed by session id in both.
 
 ## 5. Verifier (opus)
 
@@ -271,7 +265,7 @@ Reviewed <date>. Mode: <full | full (<reason>) | incremental from `<prev7>`>.
 
 ## At a glance
 
-<At most six lines, taken from verify.md and adding no claim of your own. Incremental first:
+<At most six lines, taken from verify.md, adding no claim of your own. Incremental first:
 "Since `<prev7>`: B1 fixed, B2 still open, D1 moot, D2 decided; new: B4." Then: "Bugs: N
 (blockers B1, B3)", "Design: N (tradeoffs to decide: D2)", "Disagreements: N", "Questions for
 you: N".>
@@ -293,9 +287,9 @@ you: N".>
 ## 7. Sanity check
 
 Every id in the report has a line in `## Verdicts` (a codex-only one through its `→` id), and
-every confirmed or still-present id is in the report. If not, in resume mode ask the verifier
-once by SendMessage, save its corrected reply over `verify.md` and rebuild §6 from it; in
-respawn mode, put one line naming the gap at the top of `report.md`. Do not fix it yourself.
+every confirmed or still-present id is in the report. If not: in resume mode ask the verifier
+once by SendMessage, save its corrected reply over `verify.md` and rebuild §6; in respawn
+mode, put one line naming the gap at the top of `report.md`. Do not fix it yourself.
 
 ## 8. Finish and return
 
